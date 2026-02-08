@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="contao/dca/tl_calendar">
+        <body>
+            <trans-unit id="tl_calendar.google_sync_enabled.0">
+                <source>Enable Google Calendar Sync</source>
+                <target>Google Kalender Synchronisation aktivieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_enabled.1">
+                <source>Enable synchronization with Google Calendar</source>
+                <target>Synchronisation mit Google Kalender für alle Termine in diesem Kalender aktivieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_calendar_id.0">
+                <source>Google Calendar ID</source>
+                <target>Google Kalender ID</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_calendar_id.1">
+                <source>Select the Google Calendar to sync with</source>
+                <target>Wählen Sie den Google Kalender für die Synchronisation</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_direction.0">
+                <source>Sync Direction</source>
+                <target>Synchronisationsrichtung</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_direction.1">
+                <source>Choose sync direction</source>
+                <target>Synchronisationsrichtung wählen</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_direction.to_google">
+                <source>Contao → Google (one-way)</source>
+                <target>Contao → Google (einseitig)</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_direction.from_google">
+                <source>Google → Contao (one-way)</source>
+                <target>Google → Contao (einseitig)</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_direction.bidirectional">
+                <source>Bidirectional (two-way)</source>
+                <target>Bidirektional (zweiseitig)</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_as_busy.0">
+                <source>Sync as "Busy"</source>
+                <target>Als "Beschäftigt" synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_as_busy.1">
+                <source>By default, block time without revealing event details. Title: "Busy", Description: empty, Location: hidden. Can be overridden per event.</source>
+                <target>Zeit blockieren ohne Termin-Details preiszugeben. Titel: "Beschäftigt", Beschreibung: leer, Ort: ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_last_sync.0">
+                <source>Last Synced</source>
+                <target>Zuletzt synchronisiert</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_last_sync.1">
+                <source>Timestamp of last successful sync</source>
+                <target>Zeitpunkt der letzten erfolgreichen Synchronisation</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_legend">
+                <source>Google Calendar Sync</source>
+                <target>Google Kalender Synchronisation</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync.0">
+                <source>Sync with Google</source>
+                <target>Mit Google synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync.1">
+                <source>Manually sync this calendar with Google Calendar</source>
+                <target>Diesen Kalender manuell mit Google Kalender synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_all.0">
+                <source>Sync All with Google</source>
+                <target>Alle mit Google synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_all.1">
+                <source>Sync all calendars with Google Calendar sync enabled</source>
+                <target>Alle Kalender mit aktivierter Google Kalender-Synchronisation synchronisieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_all_confirm">
+                <source>Sync all calendars with Google Calendar sync enabled?</source>
+                <target>Alle Kalender mit aktivierter Google Kalender-Synchronisation synchronisieren?</target>
+            </trans-unit>        </body>
+    </file>
+</xliff>

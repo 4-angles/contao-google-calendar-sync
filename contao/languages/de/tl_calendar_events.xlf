@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="contao/dca/tl_calendar_events">
+        <body>
+            <trans-unit id="tl_calendar_events.google_event_id.0">
+                <source>Google Event ID</source>
+                <target>Google Event ID</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_event_id.1">
+                <source>The unique identifier from Google Calendar</source>
+                <target>Die eindeutige Kennung aus Google Kalender</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_updated.0">
+                <source>Google Last Updated</source>
+                <target>Google zuletzt aktualisiert</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_updated.1">
+                <source>Timestamp of last update from Google Calendar</source>
+                <target>Zeitpunkt der letzten Aktualisierung von Google Kalender</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

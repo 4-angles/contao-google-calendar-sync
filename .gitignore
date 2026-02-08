@@ -1,0 +1,5 @@
+# Add to .gitignore
+.env.local
+/var/google-calendar-credentials.json
+.vscode/
+/.vscode

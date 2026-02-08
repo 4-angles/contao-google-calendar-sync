@@ -1,0 +1,49 @@
+# config/services.yaml
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'
+
+    # Google Calendar Service
+    App\Service\GoogleCalendarService:
+        public: true
+        arguments:
+            - '%kernel.project_dir%'
+            - '@logger'
+
+    # Event Listeners
+    App\EventListener\CalendarEventsSyncListener:
+        arguments:
+            - '@App\Service\GoogleCalendarService'
+            - '@logger'
+
+    App\EventListener\GoogleCalendarCronListener:
+        arguments:
+            - '@App\Service\GoogleCalendarService'
+            - '@logger'
+        tags:
+            - { name: contao.hook, hook: hourly }
+
+    App\EventListener\GoogleCalendarInfoListener: ~
+
+    # Commands
+    App\Command\GoogleCalendarSyncCommand:
+        arguments:
+            - '@App\Service\GoogleCalendarService'
+            - '@contao.framework'
+        tags:
+            - { name: 'console.command' }
+
+    # Controllers
+    App\Controller\GoogleCalendarBackendController:
+        arguments:
+            - '@App\Service\GoogleCalendarService'
+            - '@logger'
+            - '@contao.framework'
+        tags:
+            - { name: 'controller.service_arguments' }

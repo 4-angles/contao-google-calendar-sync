@@ -1,0 +1,18 @@
+# config/routes.yaml
+# Routes for Google Calendar Backend Controller
+
+google_calendar_auth:
+    path: /contao/google-calendar-auth
+    controller: App\Controller\GoogleCalendarBackendController::authAction
+
+google_calendar_callback:
+    path: /contao/google-calendar-callback
+    controller: App\Controller\GoogleCalendarBackendController::oauthCallbackAction
+
+google_calendar_manual_sync:
+    path: /contao/google-calendar-sync
+    controller: App\Controller\GoogleCalendarBackendController::syncAction
+
+google_calendar_sync_all:
+    path: /contao/google-calendar-sync-all
+    controller: App\Controller\GoogleCalendarBackendController::syncAllAction
