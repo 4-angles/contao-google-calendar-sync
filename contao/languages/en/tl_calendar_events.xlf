@@ -18,6 +18,22 @@
                 <source>Timestamp of last update from Google Calendar</source>
                 <target>Timestamp of last update from Google Calendar</target>
             </trans-unit>
+            <trans-unit id="tl_calendar_events.google_event_origin.0">
+                <source>Sync Origin</source>
+                <target>Sync Origin</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_event_origin.1">
+                <source>Where the event was last edited (contao or google)</source>
+                <target>Where the event was last edited (contao or google)</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_calendar_source.0">
+                <source>Source Google Calendar</source>
+                <target>Source Google Calendar</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_calendar_source.1">
+                <source>The Google Calendar ID from which this event was imported</source>
+                <target>The Google Calendar ID from which this event was imported</target>
+            </trans-unit>
             <trans-unit id="tl_calendar_events.import_from_google.0">
                 <source>Import from Google</source>
                 <target>Import from Google</target>
@@ -25,6 +41,14 @@
             <trans-unit id="tl_calendar_events.import_from_google.1">
                 <source>Import events from Google Calendar</source>
                 <target>Import events from Google Calendar</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.export_to_google.0">
+                <source>Export to Google</source>
+                <target>Export to Google</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.export_to_google.1">
+                <source>Export events to Google Calendar</source>
+                <target>Export events to Google Calendar</target>
             </trans-unit>
         </body>
     </file>

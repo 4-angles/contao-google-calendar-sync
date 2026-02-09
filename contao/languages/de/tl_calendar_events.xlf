@@ -18,6 +18,22 @@
                 <source>Timestamp of last update from Google Calendar</source>
                 <target>Zeitpunkt der letzten Aktualisierung von Google Kalender</target>
             </trans-unit>
+            <trans-unit id="tl_calendar_events.google_event_origin.0">
+                <source>Sync Origin</source>
+                <target>Sync-Herkunft</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_event_origin.1">
+                <source>Where the event was last edited (contao or google)</source>
+                <target>Wo der Termin zuletzt bearbeitet wurde (contao oder google)</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_calendar_source.0">
+                <source>Source Google Calendar</source>
+                <target>Quell-Google Kalender</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.google_calendar_source.1">
+                <source>The Google Calendar ID from which this event was imported</source>
+                <target>Die Google Kalender ID aus dem dieses Ereignis importiert wurde</target>
+            </trans-unit>
             <trans-unit id="tl_calendar_events.import_from_google.0">
                 <source>Import from Google</source>
                 <target>Von Google importieren</target>
@@ -25,6 +41,14 @@
             <trans-unit id="tl_calendar_events.import_from_google.1">
                 <source>Import events from Google Calendar</source>
                 <target>Ereignisse aus Google Kalender importieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.export_to_google.0">
+                <source>Export to Google</source>
+                <target>Nach Google exportieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.export_to_google.1">
+                <source>Export events to Google Calendar</source>
+                <target>Ereignisse nach Google Kalender exportieren</target>
             </trans-unit>
         </body>
     </file>

@@ -15,21 +15,20 @@ $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_enabled'] = [
     'sql' => "char(1) NOT NULL default ''",
 ];
 
-$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_calendar_id'] = [
-    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_calendar_id'],
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_calendar_id_import'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_calendar_id_import'],
     'inputType' => 'select',
     'options_callback' => ['tl_calendar_google', 'getGoogleCalendarOptions'],
     'eval' => ['includeBlankOption' => true, 'tl_class' => 'w50', 'chosen' => true],
     'sql' => "varchar(255) NOT NULL default ''",
 ];
 
-$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_direction'] = [
-    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_direction'],
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_calendar_id_export'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_calendar_id_export'],
     'inputType' => 'select',
-    'reference' => &$GLOBALS['TL_LANG']['tl_calendar'],
-    'options' => ['to_google','from_google'],
-    'eval' => ['tl_class' => 'w50'],
-    'sql' => "varchar(32) NOT NULL default 'to_google'",
+    'options_callback' => ['tl_calendar_google', 'getGoogleCalendarOptions'],
+    'eval' => ['includeBlankOption' => true, 'tl_class' => 'w50', 'chosen' => true],
+    'sql' => "varchar(255) NOT NULL default ''",
 ];
 
 $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_last_sync'] = [
@@ -42,8 +41,23 @@ $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_last_sync'] = [
 $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_as_busy'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_as_busy'],
     'inputType' => 'checkbox',
-    'eval' => ['tl_class' => 'w50 m12'],
+    'eval' => ['submitOnChange' => true, 'tl_class' => 'w50 m12'],
     'sql' => "char(1) NOT NULL default ''",
+];
+
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_busy_text'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_busy_text'],
+    'inputType' => 'text',
+    'eval' => ['maxlength' => 255, 'tl_class' => 'w50'],
+    'sql' => "varchar(255) NOT NULL default ''",
+];
+
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_until'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_until'],
+    'inputType' => 'text',
+    'default' => strtotime('+1 year'),
+    'eval' => ['rgxp' => 'date', 'datepicker' => true, 'tl_class' => 'w50 wizard'],
+    'sql' => "int(10) unsigned NOT NULL default 0",
 ];
 
 // Add fields to palette
@@ -54,14 +68,16 @@ PaletteManipulator::create()
 
 // Create subpalette for when google_sync_enabled is checked
 $GLOBALS['TL_DCA']['tl_calendar']['palettes']['__selector__'][] = 'google_sync_enabled';
-$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_enabled'] = 'google_calendar_id,google_sync_direction,google_sync_as_busy,google_last_sync';
+$GLOBALS['TL_DCA']['tl_calendar']['palettes']['__selector__'][] = 'google_sync_as_busy';
+$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_enabled'] = 'google_calendar_id_import,google_calendar_id_export,google_sync_until,google_sync_as_busy,google_last_sync';
+$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_as_busy'] = 'google_sync_busy_text';
 
 
 // Add global operation button for syncing all calendars
 $GLOBALS['TL_DCA']['tl_calendar']['list']['global_operations']['google_sync_all'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'],
     'href' => '',
-    'icon' => '/sync-calendar.svg',
+    'icon' => '/bundles/fouranglescontaogooglecalendar/icons/sync-calendar.svg',
     'button_callback' => ['tl_calendar_google', 'syncAllButton'],
 ];
 
@@ -95,33 +111,6 @@ class tl_calendar_google extends Backend
     }
 
     /**
-     * Return sync button only if sync is enabled
-     */
-    public function syncButton($row, $href, $label, $title, $icon, $attributes)
-    {
-        if (!$row['google_sync_enabled'] || !$row['google_calendar_id']) {
-            return '';
-        }
-
-        $url = '/contao/google-calendar-sync?id=' . $row['id'];
-        return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '"' . $attributes . '>' . \Contao\Image::getHtml($icon, $label) . '</a> ';
-    }
-    
-    /**
-     * Return drop all button only if sync is enabled
-     */
-    public function dropAllButton($row, $href, $label, $title, $icon, $attributes)
-    {
-        if (!$row['google_sync_enabled'] || !$row['google_calendar_id']) {
-            return '';
-        }
-
-        $url = '/contao/google-calendar-drop-all?id=' . $row['id'] . '&managed=1';
-        $confirm = $GLOBALS['TL_LANG']['tl_calendar']['google_drop_all_confirm'] ?? 'Delete all managed events from Google Calendar?';
-        return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '" onclick="if(!confirm(\'' . \Contao\StringUtil::specialchars($confirm) . '\'))return false"' . $attributes . '>' . \Contao\Image::getHtml($icon, $label) . '</a> ';
-    }
-
-    /**
      * Return global sync all button
      */
     public function syncAllButton()
@@ -129,7 +118,7 @@ class tl_calendar_google extends Backend
         $url = '/contao/google-calendar-sync-all';
         $title = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'][1] ?? 'Sync all calendars';
         $label = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'][0] ?? 'Sync All';
-        $icon = '/sync-calendar.svg';
+        $icon = '/bundles/fouranglescontaogooglecalendar/icons/sync-calendar.svg';
         $confirm = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all_confirm'] ?? 'Sync all calendars with Google?';
         
         return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '" onclick="if(!confirm(\'' . \Contao\StringUtil::specialchars($confirm) . '\'))return false">' . \Contao\Image::getHtml($icon, $label) . ' ' . $label . '</a> ';

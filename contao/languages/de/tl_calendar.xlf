@@ -10,37 +10,45 @@
                 <source>Enable synchronization with Google Calendar</source>
                 <target>Synchronisation mit Google Kalender für alle Termine in diesem Kalender aktivieren</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_calendar_id.0">
-                <source>Google Calendar ID</source>
-                <target>Google Kalender ID</target>
+            <trans-unit id="tl_calendar.google_calendar_id_import.0">
+                <source>Google Calendar (Import from)</source>
+                <target>Google Kalender (Importieren von)</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_calendar_id.1">
-                <source>Select the Google Calendar to sync with</source>
-                <target>Wählen Sie den Google Kalender für die Synchronisation</target>
+            <trans-unit id="tl_calendar.google_calendar_id_import.1">
+                <source>Select the Google Calendar to import events from</source>
+                <target>Wählen Sie den Google Kalender, aus dem Termine importiert werden sollen</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.0">
-                <source>Sync Direction</source>
-                <target>Synchronisationsrichtung</target>
+            <trans-unit id="tl_calendar.google_calendar_id_export.0">
+                <source>Google Calendar (Export to)</source>
+                <target>Google Kalender (Exportieren nach)</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.1">
-                <source>Choose sync direction</source>
-                <target>Synchronisationsrichtung wählen</target>
-            </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.to_google">
-                <source>Contao → Google (one-way)</source>
-                <target>Contao → Google (einseitig)</target>
-            </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.from_google">
-                <source>Google → Contao (one-way)</source>
-                <target>Google → Contao (einseitig)</target>
+            <trans-unit id="tl_calendar.google_calendar_id_export.1">
+                <source>Select the Google Calendar to export events to</source>
+                <target>Wählen Sie den Google Kalender, in den Termine exportiert werden sollen</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_sync_as_busy.0">
                 <source>Sync as "Busy"</source>
-                <target>Als "Beschäftigt" synchronisieren</target>
+                <target>Als "Belegt" synchronisieren</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_sync_as_busy.1">
-                <source>By default, block time without revealing event details. Title: "Busy", Description: empty, Location: hidden. Can be overridden per event.</source>
-                <target>Zeit blockieren ohne Termin-Details preiszugeben. Titel: "Beschäftigt", Beschreibung: leer, Ort: ausgeblendet</target>
+                <source>By default, block time without revealing event details. Title: "Busy", Description: empty, Location: hidden.</source>
+                <target>Zeit blockieren ohne Termin-Details preiszugeben. Titel: "Belegt", Beschreibung: leer, Ort: ausgeblendet</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_busy_text.0">
+                <source>Custom busy text</source>
+                <target>Eigener Belegt-Text</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_busy_text.1">
+                <source>Custom text to display instead of event title (default: "Busy")</source>
+                <target>Eigener Text anstelle des Termintitels (Standard: "Belegt")</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_until.0">
+                <source>Sync until</source>
+                <target>Synchronisieren bis</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_until.1">
+                <source>Date until which to sync events (default: 1 year ahead)</source>
+                <target>Datum bis zu dem Termine synchronisiert werden (Standard: 1 Jahr voraus)</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_last_sync.0">
                 <source>Last Synced</source>

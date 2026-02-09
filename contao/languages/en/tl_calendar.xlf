@@ -10,29 +10,21 @@
                 <source>Enable synchronization with Google Calendar</source>
                 <target>Enable synchronization with Google Calendar for all events in this calendar</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_calendar_id.0">
-                <source>Google Calendar ID</source>
-                <target>Google Calendar ID</target>
+            <trans-unit id="tl_calendar.google_calendar_id_import.0">
+                <source>Google Calendar (Import from)</source>
+                <target>Google Calendar (Import from)</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_calendar_id.1">
-                <source>Select the Google Calendar to sync with</source>
-                <target>Select the Google Calendar to sync with</target>
+            <trans-unit id="tl_calendar.google_calendar_id_import.1">
+                <source>Select the Google Calendar to import events from</source>
+                <target>Select the Google Calendar to import events from</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.0">
-                <source>Sync Direction</source>
-                <target>Sync Direction</target>
+            <trans-unit id="tl_calendar.google_calendar_id_export.0">
+                <source>Google Calendar (Export to)</source>
+                <target>Google Calendar (Export to)</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.1">
-                <source>Choose sync direction</source>
-                <target>Choose sync direction</target>
-            </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.to_google">
-                <source>Contao → Google (one-way)</source>
-                <target>Contao → Google (one-way)</target>
-            </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.from_google">
-                <source>Google → Contao (one-way)</source>
-                <target>Google → Contao (one-way)</target>
+            <trans-unit id="tl_calendar.google_calendar_id_export.1">
+                <source>Select the Google Calendar to export events to</source>
+                <target>Select the Google Calendar to export events to</target>
             </trans-unit>
 
             <trans-unit id="tl_calendar.google_sync_as_busy.0">
@@ -40,8 +32,24 @@
                 <target>Sync as "Busy"</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_sync_as_busy.1">
-                <source>By default, block time without revealing event details. Title: "Busy", Description: empty, Location: hidden. Can be overridden per event.</source>
+                <source>By default, block time without revealing event details. Title: "Busy", Description: empty, Location: hidden. </source>
                 <target>Block time without revealing event details. Title: "Busy", Description: empty, Location: hidden</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_busy_text.0">
+                <source>Custom busy text</source>
+                <target>Custom busy text</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_busy_text.1">
+                <source>Custom text to display instead of event title (default: "Busy")</source>
+                <target>Custom text to display instead of event title (default: "Busy")</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_until.0">
+                <source>Sync until</source>
+                <target>Sync until</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_until.1">
+                <source>Date until which to sync events (default: 1 year ahead)</source>
+                <target>Date until which to sync events (default: 1 year ahead)</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_last_sync.0">
                 <source>Last Synced</source>

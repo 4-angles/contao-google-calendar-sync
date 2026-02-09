@@ -52,18 +52,12 @@ class GoogleCalendarCronListener
         }
 
         foreach ($calendars as $calendar) {
-            if (!$calendar->google_calendar_id) {
-                continue;
-            }
-
-            $direction = $calendar->google_sync_direction;
-
-            if ($direction !== 'from_google' && $direction !== 'bidirectional') {
+            if (!$calendar->google_calendar_id_import) {
                 continue;
             }
 
             try {
-                $syncCount = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+                $syncCount = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id_import);
 
                 $calendar->google_last_sync = time();
                 $calendar->save();
@@ -89,65 +83,62 @@ class GoogleCalendarCronListener
         }
 
         foreach ($calendars as $calendar) {
-            if (!$calendar->google_calendar_id) {
+            if (!$calendar->google_calendar_id_export) {
                 continue;
             }
 
             try {
-                $direction = $calendar->google_sync_direction;
                 $syncCount = 0;
 
                 // Sync TO Google
-                if ($direction === 'to_google' || $direction === 'bidirectional') {
-                    $events = CalendarEventsModel::findBy('pid', $calendar->id);
+                $events = CalendarEventsModel::findBy('pid', $calendar->id);
                     
-                    if ($events) {
-                        foreach ($events as $event) {
-                            // If event is unpublished/hidden and has a Google Calendar ID, delete it
-                            if (!$event->published && $event->google_event_id) {
-                                $this->googleService->deleteEventFromGoogle(
-                                    $event->google_event_id,
-                                    $calendar->google_calendar_id
-                                );
-                                $event->google_event_id = '';
-                                $event->save();
-                                $syncCount++;
-                                continue;
-                            }
-                            
-                            // If recurring event has ended, delete from Google Calendar
-                            if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_event_id) {
-                                $this->googleService->deleteEventFromGoogle(
-                                    $event->google_event_id,
-                                    $calendar->google_calendar_id
-                                );
-                                $event->google_event_id = '';
-                                $event->save();
-                                $syncCount++;
-                                continue;
-                            }
-                            
-                            // Skip unpublished events
-                            if (!$event->published) {
-                                continue;
-                            }
-                            
-                            // Only sync if modified since last sync
-                            if ($calendar->google_last_sync && $event->tstamp <= $calendar->google_last_sync) {
-                                continue;
-                            }
-
-                            $googleEventId = $this->googleService->syncEventToGoogle(
-                                $event,
-                                $calendar->google_calendar_id
+                if ($events) {
+                    foreach ($events as $event) {
+                        // If event is unpublished/hidden and has a Google Calendar ID, delete it
+                        if (!$event->published && $event->google_event_id) {
+                            $this->googleService->deleteEventFromGoogle(
+                                $event->google_event_id,
+                                $calendar->google_calendar_id_export
                             );
-                            
-                            if ($googleEventId) {
-                                $event->google_event_id = $googleEventId;
-                                $event->google_updated = time();
-                                $event->save();
-                                $syncCount++;
-                            }
+                            $event->google_event_id = '';
+                            $event->save();
+                            $syncCount++;
+                            continue;
+                        }
+                        
+                        // If recurring event has ended, delete from Google Calendar
+                        if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_event_id) {
+                            $this->googleService->deleteEventFromGoogle(
+                                $event->google_event_id,
+                                $calendar->google_calendar_id_export
+                            );
+                            $event->google_event_id = '';
+                            $event->save();
+                            $syncCount++;
+                            continue;
+                        }
+                        
+                        // Skip unpublished events
+                        if (!$event->published) {
+                            continue;
+                        }
+                        
+                        // Only sync if modified since last sync
+                        if ($calendar->google_last_sync && $event->tstamp <= $calendar->google_last_sync) {
+                            continue;
+                        }
+
+                        $googleEventId = $this->googleService->syncEventToGoogle(
+                            $event,
+                            $calendar->google_calendar_id_export
+                        );
+                        
+                        if ($googleEventId) {
+                            $event->google_event_id = $googleEventId;
+                            $event->google_updated = time();
+                            $event->save();
+                            $syncCount++;
                         }
                     }
                 }

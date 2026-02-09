@@ -16,6 +16,7 @@ services:
         arguments:
             - '%kernel.project_dir%'
             - '@logger'
+            - '@contao.framework'
 
     # Event Listeners
     FourAngles\ContaoGoogleCalendarBundle\EventListener\CalendarEventsSyncListener:

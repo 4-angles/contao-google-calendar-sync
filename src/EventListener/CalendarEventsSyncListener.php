@@ -43,18 +43,13 @@ class CalendarEventsSyncListener
 
         // Get parent calendar and check if sync is enabled at calendar level
         $calendar = CalendarModel::findByPk($event->pid);
-        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
-            return;
-        }
-
-        // Only sync if direction allows Contao → Google
-        if ($calendar->google_sync_direction === 'from_google') {
+        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id_export) {
             return;
         }
 
         // If event is unpublished and has a Google Calendar ID, delete it from Google
         if (!$event->published && $event->google_event_id) {
-            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id);
+            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id_export);
             $event->google_event_id = '';
             $event->save();
             return;
@@ -62,7 +57,7 @@ class CalendarEventsSyncListener
         
         // If recurring event has ended, delete from Google Calendar
         if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_event_id) {
-            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id);
+            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id_export);
             $event->google_event_id = '';
             $event->save();
             $this->logger->info('Deleted expired recurring event from Google Calendar', [
@@ -80,7 +75,7 @@ class CalendarEventsSyncListener
 
             
         // Sync to Google Calendar
-        $googleEventId = $this->googleService->syncEventToGoogle($event, $calendar->google_calendar_id);
+        $googleEventId = $this->googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export);
         if ($googleEventId) {
             // Update event with Google Calendar ID
             $event->google_event_id = $googleEventId;
@@ -112,19 +107,14 @@ class CalendarEventsSyncListener
 
         // Get parent calendar
         $calendar = CalendarModel::findByPk($event->pid);
-        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
-            return;
-        }
-
-        // Only delete if direction allows Contao → Google
-        if ($calendar->google_sync_direction === 'from_google') {
+        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id_export) {
             return;
         }
 
         // Delete from Google Calendar
         $success = $this->googleService->deleteEventFromGoogle(
             $event->google_event_id,
-            $calendar->google_calendar_id
+            $calendar->google_calendar_id_export
         );
 
         if ($success) {

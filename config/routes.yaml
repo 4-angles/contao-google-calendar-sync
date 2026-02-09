@@ -19,3 +19,7 @@ google_calendar_sync_all:
 google_calendar_import_events:
     path: /contao/google-calendar-import-events
     controller: FourAngles\ContaoGoogleCalendarBundle\Controller\GoogleCalendarBackendController::importEventsAction
+
+google_calendar_export_events:
+    path: /contao/google-calendar-export-events
+    controller: FourAngles\ContaoGoogleCalendarBundle\Controller\GoogleCalendarBackendController::exportEventsAction

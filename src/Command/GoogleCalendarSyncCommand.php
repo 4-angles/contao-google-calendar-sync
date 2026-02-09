@@ -34,7 +34,8 @@ class GoogleCalendarSyncCommand extends Command
     {
         $this
             ->addArgument('calendar-id', InputArgument::OPTIONAL, 'Specific calendar ID to sync')
-            ->addOption('direction', 'd', InputOption::VALUE_REQUIRED, 'Sync direction: to-google, from-google, or bidirectional', 'bidirectional')
+            ->addOption('import-only', null, InputOption::VALUE_NONE, 'Only import from Google')
+            ->addOption('export-only', null, InputOption::VALUE_NONE, 'Only export to Google')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Perform a dry run without making changes');
     }
 
@@ -44,7 +45,8 @@ class GoogleCalendarSyncCommand extends Command
         $this->framework->initialize();
 
         $calendarId = $input->getArgument('calendar-id');
-        $direction = $input->getOption('direction');
+        $importOnly = $input->getOption('import-only');
+        $exportOnly = $input->getOption('export-only');
         $dryRun = $input->getOption('dry-run');
 
         if ($dryRun) {
@@ -69,21 +71,19 @@ class GoogleCalendarSyncCommand extends Command
         foreach ($calendars as $calendar) {
             $io->section("Syncing calendar: {$calendar->title} (ID: {$calendar->id})");
 
-            if (!$calendar->google_calendar_id) {
-                $io->error('No Google Calendar ID configured');
+            if (!$calendar->google_calendar_id_import && !$calendar->google_calendar_id_export) {
+                $io->error('No Google Calendar IDs configured (import or export)');
                 $totalErrors++;
                 continue;
             }
 
             try {
-                $syncDirection = $direction !== 'bidirectional' ? $direction : $calendar->google_sync_direction;
-
                 // Sync FROM Google
-                if ($syncDirection === 'from-google' || $syncDirection === 'from_google' || $syncDirection === 'bidirectional') {
-                    $io->text('Syncing FROM Google Calendar...');
+                if (!$exportOnly && $calendar->google_calendar_id_import) {
+                    $io->text('Importing FROM Google Calendar...');
                     
                     if (!$dryRun) {
-                        $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+                        $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id_import);
                         $io->success("Imported $count events from Google Calendar");
                         $totalSynced += $count;
                     } else {
@@ -92,8 +92,8 @@ class GoogleCalendarSyncCommand extends Command
                 }
 
                 // Sync TO Google
-                if ($syncDirection === 'to-google' || $syncDirection === 'to_google' || $syncDirection === 'bidirectional') {
-                    $io->text('Syncing TO Google Calendar...');
+                if (!$importOnly && $calendar->google_calendar_id_export) {
+                    $io->text('Exporting TO Google Calendar...');
                     
                     $events = CalendarEventsModel::findBy('pid', $calendar->id);
                     
@@ -103,7 +103,7 @@ class GoogleCalendarSyncCommand extends Command
                             if (!$dryRun) {
                                 $googleEventId = $this->googleService->syncEventToGoogle(
                                     $event,
-                                    $calendar->google_calendar_id
+                                    $calendar->google_calendar_id_export
                                 );
                                 
                                 if ($googleEventId) {

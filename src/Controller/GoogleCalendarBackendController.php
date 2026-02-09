@@ -52,15 +52,15 @@ class GoogleCalendarBackendController extends AbstractController
             return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
         }
 
-        if (!$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
-            Message::addError('Google Calendar sync is not enabled for this calendar');
-            $this->logger->warning('Import skipped: Calendar ' . $calendar->id . ' does not have sync enabled or calendar ID set');
+        if (!$calendar->google_sync_enabled || !$calendar->google_calendar_id_import) {
+            Message::addError('Google Calendar sync is not enabled for this calendar or no import calendar configured');
+            $this->logger->warning('Import skipped: Calendar ' . $calendar->id . ' does not have sync enabled or import calendar ID set');
             return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
         }
 
         try {
             $this->logger->info('Starting import from Google Calendar for calendar ' . $calendar->id, [
-                'google_calendar_id' => $calendar->google_calendar_id
+                'google_calendar_id' => $calendar->google_calendar_id_import
             ]);
 
             // Check if Google Calendar service is available
@@ -71,7 +71,7 @@ class GoogleCalendarBackendController extends AbstractController
             }
 
             // Import from Google to Contao
-            $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+            $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id_import);
             
             // Update last sync timestamp
             $calendar->google_last_sync = time();
@@ -87,6 +87,67 @@ class GoogleCalendarBackendController extends AbstractController
         } catch (\Exception $e) {
             Message::addError('Import failed: ' . $e->getMessage());
             $this->logger->error('Google Calendar import error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'calendar_id' => $calendar->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+
+        return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+    }
+
+    /**
+     * Export events to Google Calendar action (triggered from tl_calendar_events)
+     */
+    #[Route('/google-calendar-export-events', name: 'google_calendar_export_events')]
+    public function exportEventsAction(Request $request): Response
+    {
+        $this->framework->initialize();
+        
+        $calendarId = $request->query->get('id');
+        $calendar = CalendarModel::findByPk($calendarId);
+
+        if (!$calendar) {
+            Message::addError('Calendar not found');
+            $this->logger->error('Export failed: Calendar not found with ID ' . $calendarId);
+            return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+        }
+
+        if (!$calendar->google_sync_enabled || !$calendar->google_calendar_id_export) {
+            Message::addError('Google Calendar sync is not enabled for this calendar or no export calendar configured');
+            $this->logger->warning('Export skipped: Calendar ' . $calendar->id . ' does not have sync enabled or export calendar ID set');
+            return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+        }
+
+        try {
+            $this->logger->info('Starting export to Google Calendar for calendar ' . $calendar->id, [
+                'google_calendar_id' => $calendar->google_calendar_id_export
+            ]);
+
+            // Check if Google Calendar service is available
+            if (!$this->googleService->getService()) {
+                Message::addError('Google Calendar API is not configured or authenticated. Please check your settings.');
+                $this->logger->error('Google Calendar service not available');
+                return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+            }
+
+            // Export from Contao to Google
+            $count = $this->googleService->exportToGoogle($calendar, $calendar->google_calendar_id_export);
+            
+            // Update last sync timestamp
+            $calendar->google_last_sync = time();
+            $calendar->save();
+
+            if ($count > 0) {
+                Message::addConfirmation("Successfully exported $count event(s) to Google Calendar");
+                $this->logger->info("Exported $count events to Google Calendar");
+            } else {
+                Message::addInfo("No events to export to Google Calendar");
+                $this->logger->info("No events exported to Google Calendar");
+            }
+        } catch (\Exception $e) {
+            Message::addError('Export failed: ' . $e->getMessage());
+            $this->logger->error('Google Calendar export error: ' . $e->getMessage(), [
                 'exception' => $e,
                 'calendar_id' => $calendar->id,
                 'trace' => $e->getTraceAsString()
@@ -113,27 +174,26 @@ class GoogleCalendarBackendController extends AbstractController
             return new RedirectResponse('/contao?do=calendar');
         }
 
-        if (!$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
+        if (!$calendar->google_sync_enabled || (!$calendar->google_calendar_id_import && !$calendar->google_calendar_id_export)) {
             Message::addError('Google Calendar sync is not enabled for this calendar');
-            $this->logger->warning('Sync skipped: Calendar ' . $calendar->id . ' does not have sync enabled or calendar ID set');
+            $this->logger->warning('Sync skipped: Calendar ' . $calendar->id . ' does not have sync enabled or calendar IDs set');
             return new RedirectResponse('/contao?do=calendar');
         }
 
         try {
-            $direction = $calendar->google_sync_direction;
             $syncCount = 0;
             
-            $this->logger->info('Starting sync for calendar ' . $calendar->id . ' in direction: ' . $direction);
+            $this->logger->info('Starting sync for calendar ' . $calendar->id);
 
-            if ($direction === 'from_google' || $direction === 'bidirectional') {
+            if ($calendar->google_calendar_id_import) {
                 // Sync from Google to Contao
-                $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+                $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id_import);
                 $syncCount += $count;
                 Message::addInfo("Synced $count events from Google Calendar");
                 $this->logger->info("Synced $count events from Google Calendar");
             }
 
-            if ($direction === 'to_google' || $direction === 'bidirectional') {
+            if ($calendar->google_calendar_id_export) {
                 // Sync all events from this calendar to Google
                 $events = \Contao\CalendarEventsModel::findBy('pid', $calendar->id);
                 
@@ -147,7 +207,7 @@ class GoogleCalendarBackendController extends AbstractController
                         
                         $googleEventId = $this->googleService->syncEventToGoogle(
                             $event,
-                            $calendar->google_calendar_id
+                            $calendar->google_calendar_id_export
                         );
                         
                         if ($googleEventId) {
@@ -207,29 +267,28 @@ class GoogleCalendarBackendController extends AbstractController
         $errorCount = 0;
 
         foreach ($calendars as $calendar) {
-            if (!$calendar->google_calendar_id) {
-                $this->logger->warning('Skipping calendar ' . $calendar->id . ': No Google Calendar ID set');
+            if (!$calendar->google_calendar_id_import && !$calendar->google_calendar_id_export) {
+                $this->logger->warning('Skipping calendar ' . $calendar->id . ': No Google Calendar IDs set');
                 continue;
             }
 
             try {
-                $direction = $calendar->google_sync_direction;
-                $this->logger->info('Syncing calendar ' . $calendar->id . ' (' . $calendar->title . ') in direction: ' . $direction);
+                $this->logger->info('Syncing calendar ' . $calendar->id . ' (' . $calendar->title . ')');
                 
-                if ($direction === 'from_google' || $direction === 'bidirectional') {
-                    $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+                if ($calendar->google_calendar_id_import) {
+                    $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id_import);
                     $totalSynced += $count;
                     $this->logger->info("Synced $count events from Google for calendar " . $calendar->id);
                 }
 
-                if ($direction === 'to_google' || $direction === 'bidirectional') {
+                if ($calendar->google_calendar_id_export) {
                     $events = \Contao\CalendarEventsModel::findBy('pid', $calendar->id);
                     
                     if ($events) {
                         foreach ($events as $event) {
                             $googleEventId = $this->googleService->syncEventToGoogle(
                                 $event,
-                                $calendar->google_calendar_id
+                                $calendar->google_calendar_id_export
                             );
                             
                             if ($googleEventId) {
@@ -297,13 +356,15 @@ class GoogleCalendarBackendController extends AbstractController
     #[Route('/google-calendar-auth', name: 'google_calendar_auth')]
     public function authAction(): Response
     {
+        $this->framework->initialize();
+        
         $authUrl = $this->googleService->getAuthUrl();
         
         if ($authUrl) {
             return new RedirectResponse($authUrl);
         }
 
-        Message::addError('Could not generate Google Calendar authorization URL');
+        Message::addError('Could not generate Google Calendar authorization URL. Check your GOOGLE_CALENDAR_* environment variables.');
         return new RedirectResponse('/contao?do=calendar');
     }
 }
