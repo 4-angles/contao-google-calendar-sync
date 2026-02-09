@@ -1,8 +1,8 @@
 <?php
 
-namespace App\EventListener;
+namespace FourAngles\ContaoGoogleCalendarBundle\EventListener;
 
-use App\Service\GoogleCalendarService;
+use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;

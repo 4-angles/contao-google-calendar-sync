@@ -1,8 +1,8 @@
 <?php
 
-namespace App\EventListener;
+namespace FourAngles\ContaoGoogleCalendarBundle\EventListener;
 
-use App\Service\GoogleCalendarService;
+use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
@@ -23,18 +23,64 @@ class GoogleCalendarCronListener
     }
 
     /**
-     * Run on hourly cron
+     * Run every minute - import events from Google
+     */
+    #[AsHook('minutely')]
+    public function onMinutely(): void
+    {
+        $this->importFromGoogle();
+    }
+
+    /**
+     * Run on hourly cron - sync events to Google
      */
     #[AsHook('hourly')]
     public function onHourly(): void
     {
-        $this->syncCalendars();
+        $this->syncToGoogle();
     }
 
     /**
-     * Sync all calendars with Google Calendar sync enabled
+     * Import events from Google Calendar for all enabled calendars
      */
-    private function syncCalendars(): void
+    private function importFromGoogle(): void
+    {
+        $calendars = CalendarModel::findBy('google_sync_enabled', '1');
+
+        if (!$calendars) {
+            return;
+        }
+
+        foreach ($calendars as $calendar) {
+            if (!$calendar->google_calendar_id) {
+                continue;
+            }
+
+            $direction = $calendar->google_sync_direction;
+
+            if ($direction !== 'from_google' && $direction !== 'bidirectional') {
+                continue;
+            }
+
+            try {
+                $syncCount = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+
+                $calendar->google_last_sync = time();
+                $calendar->save();
+
+                if ($syncCount > 0) {
+                    $this->logger->info("Imported $syncCount events from Google for '{$calendar->title}'");
+                }
+            } catch (\Exception $e) {
+                $this->logger->error("Google Calendar import error for '{$calendar->title}': {$e->getMessage()}");
+            }
+        }
+    }
+
+    /**
+     * Sync events to Google Calendar for all enabled calendars
+     */
+    private function syncToGoogle(): void
     {
         $calendars = CalendarModel::findBy('google_sync_enabled', '1');
 
@@ -50,12 +96,6 @@ class GoogleCalendarCronListener
             try {
                 $direction = $calendar->google_sync_direction;
                 $syncCount = 0;
-
-                // Sync FROM Google
-                if ($direction === 'from_google' || $direction === 'bidirectional') {
-                    $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
-                    $syncCount += $count;
-                }
 
                 // Sync TO Google
                 if ($direction === 'to_google' || $direction === 'bidirectional') {
@@ -116,8 +156,12 @@ class GoogleCalendarCronListener
                 $calendar->google_last_sync = time();
                 $calendar->save();
 
+                // Update last sync timestamp
+                $calendar->google_last_sync = time();
+                $calendar->save();
+
                 if ($syncCount > 0) {
-                    $this->logger->info("Calendar '{$calendar->title}' synced: $syncCount events");
+                    $this->logger->info("Synced $syncCount events to Google for '{$calendar->title}'");
                 }
 
             } catch (\Exception $e) {

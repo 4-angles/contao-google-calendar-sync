@@ -38,18 +38,59 @@ $GLOBALS['TL_DCA']['tl_calendar_events']['config']['onsubmit_callback'][] = ['tl
 // Add list label callback to show sync status
 $GLOBALS['TL_DCA']['tl_calendar_events']['list']['label']['label_callback'] = ['tl_calendar_events_google', 'addSyncIcon'];
 
+// Add global operation to import from Google Calendar
+if (!isset($GLOBALS['TL_DCA']['tl_calendar_events']['list']['global_operations'])) {
+    $GLOBALS['TL_DCA']['tl_calendar_events']['list']['global_operations'] = [];
+}
+
+$GLOBALS['TL_DCA']['tl_calendar_events']['list']['global_operations']['import_from_google'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar_events']['import_from_google'],
+    'href' => 'key=import_from_google',
+    'class' => 'header_sync',
+    'icon' => '/sync-calendar.svg',
+    'button_callback' => ['tl_calendar_events_google', 'importFromGoogleButton']
+];
+
 /**
  * Provide miscellaneous methods for tl_calendar_events with Google Calendar integration
  */
 class tl_calendar_events_google
 {
     /**
+     * Show import from Google button only if calendar has sync enabled
+     */
+    public function importFromGoogleButton($href, $label, $title, $class, $attributes)
+    {
+        // Get current calendar ID from request
+        $calendarId = \Contao\Input::get('id');
+        
+        if (!$calendarId) {
+            return '';
+        }
+        
+        // Check if calendar has Google sync enabled
+        $calendar = \Contao\CalendarModel::findByPk($calendarId);
+        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
+            return '';
+        }
+        
+        // Only show if sync direction allows importing from Google
+        if ($calendar->google_sync_direction === 'to_google') {
+            return '';
+        }
+        
+        // Generate the button HTML with direct link to controller
+        $url = \Contao\System::getContainer()->get('router')->generate('google_calendar_import_events', ['id' => $calendarId]);
+        return '<a href="' . $url . '" class="' . $class . '" title="' . \Contao\StringUtil::specialchars($title) . '"' . $attributes . '>' . $label . '</a> ';
+    }
+    
+    /**
      * Add sync icon to event list
      */
     public function addSyncIcon($row, $label, $dc, $args)
     {
         if ($row['google_event_id']) {
-            $label .= ' <img src="bundles/contaocore/images/visible.svg" width="16" height="16" alt="Synced with Google" title="Synced with Google Calendar">';
+            $label .= ' <img src="/sync-calendar.svg" width="16" height="16" alt="Synced with Google" title="Synced with Google Calendar">';
         }
         
         return $label;
@@ -87,7 +128,7 @@ class tl_calendar_events_google
         
         // Get the Google Calendar service
         try {
-            $googleService = \Contao\System::getContainer()->get('App\Service\GoogleCalendarService');
+            $googleService = \Contao\System::getContainer()->get('FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService');
             
             // Check if value changed from published to unpublished
             $isNowUnpublished = empty($value) || $value === '0' || $value === 0 || $value === false;

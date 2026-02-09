@@ -18,6 +18,14 @@
                 <source>Timestamp of last update from Google Calendar</source>
                 <target>Zeitpunkt der letzten Aktualisierung von Google Kalender</target>
             </trans-unit>
+            <trans-unit id="tl_calendar_events.import_from_google.0">
+                <source>Import from Google</source>
+                <target>Von Google importieren</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar_events.import_from_google.1">
+                <source>Import events from Google Calendar</source>
+                <target>Ereignisse aus Google Kalender importieren</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Service;
+namespace FourAngles\ContaoGoogleCalendarBundle\Service;
 
 use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
@@ -41,7 +41,9 @@ class GoogleCalendarService
             return $this->client;
         }
 
-        if (!$_ENV['GOOGLE_CALENDAR_ENABLED'] ?? false) {
+        $enabled = $_ENV['GOOGLE_CALENDAR_ENABLED'] ?? false;
+        if (!$enabled) {
+            $this->logger->warning('Google Calendar is not enabled in environment configuration');
             return null;
         }
 
@@ -49,10 +51,20 @@ class GoogleCalendarService
             $this->client = new Client();
             $this->client->setApplicationName($_ENV['GOOGLE_CALENDAR_APPLICATION_NAME'] ?? 'Contao Calendar Sync');
             $this->client->setScopes(Calendar::CALENDAR);
+            
+            $clientId = $_ENV['GOOGLE_CALENDAR_CLIENT_ID'] ?? '';
+            $clientSecret = $_ENV['GOOGLE_CALENDAR_CLIENT_SECRET'] ?? '';
+            $redirectUri = $_ENV['GOOGLE_CALENDAR_REDIRECT_URI'] ?? '';
+            
+            if (empty($clientId) || empty($clientSecret)) {
+                $this->logger->error('Google Calendar credentials are not configured');
+                return null;
+            }
+            
             $this->client->setAuthConfig([
-                'client_id' => $_ENV['GOOGLE_CALENDAR_CLIENT_ID'] ?? '',
-                'client_secret' => $_ENV['GOOGLE_CALENDAR_CLIENT_SECRET'] ?? '',
-                'redirect_uris' => [$_ENV['GOOGLE_CALENDAR_REDIRECT_URI'] ?? ''],
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'redirect_uris' => [$redirectUri],
             ]);
             $this->client->setAccessType('offline');
             $this->client->setPrompt('select_account consent');
@@ -61,6 +73,10 @@ class GoogleCalendarService
             if (file_exists($this->credentialsPath)) {
                 $accessToken = json_decode(file_get_contents($this->credentialsPath), true);
                 $this->client->setAccessToken($accessToken);
+            } else {
+                $this->logger->warning('Google Calendar credentials file not found', [
+                    'path' => $this->credentialsPath
+                ]);
             }
 
             // Refresh token if expired
@@ -68,12 +84,17 @@ class GoogleCalendarService
                 if ($this->client->getRefreshToken()) {
                     $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
                     $this->saveCredentials($this->client->getAccessToken());
+                } else {
+                    $this->logger->error('Google Calendar access token expired and no refresh token available');
+                    return null;
                 }
             }
 
             return $this->client;
         } catch (\Exception $e) {
-            $this->logger->error('Google Calendar API Error: ' . $e->getMessage());
+            $this->logger->error('Google Calendar API Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return null;
         }
     }
@@ -532,100 +553,296 @@ class GoogleCalendarService
     public function syncFromGoogle(CalendarModel $calendar, string $googleCalendarId): int
     {
         $service = $this->getService();
+
         if ($service === null) {
+            $this->logger->error('Cannot sync from Google: Service is null', [
+                'calendar_id' => $calendar->id,
+                'google_calendar_id' => $googleCalendarId
+            ]);
             return 0;
         }
+        
+        $this->logger->info('Starting sync from Google Calendar', [
+            'calendar_id' => $calendar->id,
+            'google_calendar_id' => $googleCalendarId
+        ]);
 
         try {
             $syncCount = 0;
-            // Sync only from today to 1 year ahead
-            $optParams = [
-                'maxResults' => 250,
-                'orderBy' => 'startTime',
-                'singleEvents' => false, // Get recurring event definitions
-                'timeMin' => date('c'), // From today
-                'timeMax' => date('c', strtotime('+1 year')), // Up to 1 year ahead
-            ];
+            $pageToken = null;
+            $allGoogleEventIds = [];
+            $processedBaseIds = [];
 
-            // Rate limiting
-            $this->throttle();
-            $events = $service->events->listEvents($googleCalendarId, $optParams);
+            do {
+                // Sync only from today to 1 year ahead
+                // Use singleEvents=true to expand recurring events into individual instances
+                // This is required for orderBy=startTime and timeMin/timeMax filtering
+                $optParams = [
+                    'maxResults' => 250,
+                    'orderBy' => 'startTime',
+                    'singleEvents' => true, // Expand recurring events into instances
+                    'timeMin' => date('c'), // From today
+                    'timeMax' => date('c', strtotime('+1 year')), // Up to 1 year ahead
+                ];
 
-            foreach ($events->getItems() as $googleEvent) {
-                // Check if event already exists in Contao
-                $existingEvent = CalendarEventsModel::findOneBy(
-                    ['google_event_id=?', 'pid=?'],
-                    [$googleEvent->getId(), $calendar->id]
-                );
-
-                if ($existingEvent) {
-                    // Check if Google event was updated
-                    if ($googleEvent->getUpdated() && $existingEvent->google_updated) {
-                        $googleUpdatedTime = strtotime($googleEvent->getUpdated());
-                        $contaoUpdatedTime = $existingEvent->google_updated;
-
-                        if ($googleUpdatedTime > $contaoUpdatedTime) {
-                            $this->updateContaoEvent($existingEvent, $googleEvent);
-                            $syncCount++;
-                        }
-                    }
-                } else {
-                    // Create new event in Contao
-                    $this->createContaoEvent($calendar, $googleEvent);
-                    $syncCount++;
+                if ($pageToken) {
+                    $optParams['pageToken'] = $pageToken;
                 }
-            }
+                
+                // Rate limiting
+                $this->throttle();
+                
+                $this->logger->info('Fetching events from Google Calendar', [
+                    'calendar_id' => $googleCalendarId,
+                    'params' => $optParams
+                ]);
+                
+                $events = $service->events->listEvents($googleCalendarId, $optParams);
+                
+                $itemCount = $events->getItems() ? count($events->getItems()) : 0;
+                
+                $this->logger->info('Retrieved events from Google', [
+                    'count' => $itemCount,
+                    'has_next_page' => $events->getNextPageToken() ? 'yes' : 'no'
+                ]);
+                
+                if ($itemCount === 0) {
+                    $this->logger->warning('No events found in Google Calendar for the specified time range', [
+                        'timeMin' => $optParams['timeMin'],
+                        'timeMax' => $optParams['timeMax']
+                    ]);
+                }
+
+                foreach ($events->getItems() as $googleEvent) {
+                    $googleEventId = $googleEvent->getId();
+                    
+                    // With singleEvents=true, recurring event instances have IDs like "baseId_20260301T100000Z"
+                    // Extract the base event ID for deduplication
+                    $baseEventId = $googleEventId;
+                    if (strpos($googleEventId, '_') !== false) {
+                        $baseEventId = substr($googleEventId, 0, strpos($googleEventId, '_'));
+                    }
+                    
+                    // Skip if we already processed an instance of this recurring event
+                    if (isset($processedBaseIds[$baseEventId])) {
+                        continue;
+                    }
+                    
+                    $allGoogleEventIds[] = $googleEventId;
+                    $allGoogleEventIds[] = $baseEventId; // Also track base ID for cleanup
+                    
+                    // Skip cancelled events
+                    if ($googleEvent->getStatus() === 'cancelled') {
+                        $this->logger->info('Skipping cancelled Google event', [
+                            'google_event_id' => $googleEventId,
+                            'summary' => $googleEvent->getSummary()
+                        ]);
+                        continue;
+                    }
+                    
+                    // Mark this base event as processed (only import first instance of recurring events)
+                    $processedBaseIds[$baseEventId] = true;
+                    
+                    // Check if event already exists in Contao (try both full ID and base ID)
+                    $existingEvent = CalendarEventsModel::findOneBy(
+                        ['google_event_id=?', 'pid=?'],
+                        [$googleEventId, $calendar->id]
+                    );
+                    
+                    if (!$existingEvent && $baseEventId !== $googleEventId) {
+                        $existingEvent = CalendarEventsModel::findOneBy(
+                            ['google_event_id=?', 'pid=?'],
+                            [$baseEventId, $calendar->id]
+                        );
+                    }
+
+                    if ($existingEvent) {
+                        // Check if Google event was updated
+                        if ($googleEvent->getUpdated() && $existingEvent->google_updated) {
+                            $googleUpdatedTime = strtotime($googleEvent->getUpdated());
+                            $contaoUpdatedTime = $existingEvent->google_updated;
+
+                            if ($googleUpdatedTime > $contaoUpdatedTime) {
+                                $this->updateContaoEvent($existingEvent, $googleEvent);
+                                $this->logger->info('Updated existing event from Google', [
+                                    'event_id' => $existingEvent->id,
+                                    'google_event_id' => $googleEventId
+                                ]);
+                                $syncCount++;
+                            }
+                        }
+                    } else {
+                        // Create new event in Contao
+                        // If this is a recurring event instance, fetch the master event for recurrence info
+                        $masterEvent = null;
+                        $recurringEventId = $googleEvent->getRecurringEventId();
+                        if ($recurringEventId) {
+                            try {
+                                $this->throttle();
+                                $masterEvent = $service->events->get($googleCalendarId, $recurringEventId);
+                            } catch (\Exception $e) {
+                                $this->logger->warning('Could not fetch master recurring event', [
+                                    'recurring_event_id' => $recurringEventId,
+                                    'error' => $e->getMessage()
+                                ]);
+                            }
+                        }
+                        
+                        $this->createContaoEvent($calendar, $googleEvent, $masterEvent);
+                        $this->logger->info('Created new event from Google', [
+                            'google_event_id' => $googleEventId,
+                            'summary' => $googleEvent->getSummary(),
+                            'is_recurring' => $recurringEventId ? 'yes (master: ' . $recurringEventId . ')' : 'no'
+                        ]);
+                        $syncCount++;
+                    }
+                }
+                
+                $pageToken = $events->getNextPageToken();
+            } while ($pageToken);
+            
+            // Clean up events that no longer exist in Google Calendar
+            // Only remove events that were synced from Google (have google_event_id)
+            // and are in the future (to avoid deleting historical events)
+            $this->cleanupDeletedGoogleEvents($calendar, $allGoogleEventIds);
+            
+            $this->logger->info('Completed sync from Google Calendar', [
+                'calendar_id' => $calendar->id,
+                'synced_count' => $syncCount
+            ]);
 
             return $syncCount;
         } catch (\Exception $e) {
-            $this->logger->error('Error syncing from Google Calendar: ' . $e->getMessage());
+            $this->logger->error('Error syncing from Google Calendar: ' . $e->getMessage(), [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return 0;
+        }
+    }
+    
+    /**
+     * Clean up Contao events that no longer exist in Google Calendar
+     */
+    private function cleanupDeletedGoogleEvents(CalendarModel $calendar, array $existingGoogleIds): void
+    {
+        try {
+            // Find all Contao events for this calendar that have a google_event_id
+            // and are in the future (start date >= today)
+            $today = strtotime('today');
+            $contaoEvents = CalendarEventsModel::findBy(
+                ['pid=?', 'google_event_id!=?', 'startDate>=?'],
+                [$calendar->id, '', $today]
+            );
+            
+            if (!$contaoEvents) {
+                return;
+            }
+            
+            $deletedCount = 0;
+            foreach ($contaoEvents as $event) {
+                // If this event's Google ID is not in the list from Google, it was deleted
+                // Also check if the base ID (without instance suffix) matches
+                $eventGoogleId = $event->google_event_id;
+                $isFound = in_array($eventGoogleId, $existingGoogleIds);
+                
+                if (!$isFound) {
+                    $this->logger->info('Deleting event that was removed from Google Calendar', [
+                        'event_id' => $event->id,
+                        'google_event_id' => $event->google_event_id,
+                        'title' => $event->title
+                    ]);
+                    $event->delete();
+                    $deletedCount++;
+                }
+            }
+            
+            if ($deletedCount > 0) {
+                $this->logger->info('Cleaned up deleted Google events', [
+                    'deleted_count' => $deletedCount
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Error cleaning up deleted Google events: ' . $e->getMessage());
         }
     }
 
     /**
      * Create Contao event from Google Calendar event
      */
-    private function createContaoEvent(CalendarModel $calendar, Event $googleEvent): void
+    private function createContaoEvent(CalendarModel $calendar, Event $googleEvent, ?Event $masterEvent = null): void
     {
-        $event = new CalendarEventsModel();
-        $event->pid = $calendar->id;
-        $event->tstamp = time();
-        $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
-        $event->teaser = $googleEvent->getDescription() ?: '';
-        $event->location = $googleEvent->getLocation() ?: '';
-        $event->google_event_id = $googleEvent->getId();
-        $event->google_updated = strtotime($googleEvent->getUpdated());
+        try {
+            $event = new CalendarEventsModel();
+            $event->pid = $calendar->id;
+            $event->tstamp = time();
+            $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
+            $event->teaser = $googleEvent->getDescription() ?: '';
+            $event->location = $googleEvent->getLocation() ?: '';
+            
+            // For recurring instances, store the base event ID so we can deduplicate
+            $googleEventId = $googleEvent->getId();
+            $recurringEventId = $googleEvent->getRecurringEventId();
+            $event->google_event_id = $recurringEventId ?: $googleEventId;
+            $event->google_updated = $googleEvent->getUpdated() ? strtotime($googleEvent->getUpdated()) : time();
 
-        // Parse start date/time
-        $start = $googleEvent->getStart();
-        if ($start->getDateTime()) {
-            $event->addTime = '1';
-            $event->startTime = strtotime($start->getDateTime());
-            $event->startDate = strtotime(date('Y-m-d', $event->startTime));
-        } else {
-            $event->addTime = '';
-            $event->startDate = strtotime($start->getDate());
-            $event->startTime = $event->startDate;
+            // Parse start date/time
+            $start = $googleEvent->getStart();
+            if (!$start) {
+                $this->logger->error('Google event has no start date', [
+                    'google_event_id' => $googleEvent->getId()
+                ]);
+                return;
+            }
+            
+            if ($start->getDateTime()) {
+                $event->addTime = '1';
+                $event->startTime = strtotime($start->getDateTime());
+                $event->startDate = strtotime(date('Y-m-d', $event->startTime));
+            } else {
+                $event->addTime = '';
+                $event->startDate = strtotime($start->getDate());
+                $event->startTime = $event->startDate;
+            }
+
+            // Parse end date/time
+            $end = $googleEvent->getEnd();
+            if ($end) {
+                if ($end->getDateTime()) {
+                    $event->endTime = strtotime($end->getDateTime());
+                    $event->endDate = strtotime(date('Y-m-d', $event->endTime));
+                } else {
+                    // Google all-day events have end date as the day after
+                    $endDate = strtotime($end->getDate());
+                    $event->endDate = strtotime('-1 day', $endDate);
+                    $event->endTime = $event->endDate;
+                }
+            } else {
+                // No end date specified, use start date
+                $event->endTime = $event->startTime;
+                $event->endDate = $event->startDate;
+            }
+
+            // Parse recurring event settings
+            // Use master event for recurrence info if available (singleEvents=true doesn't include RRULE on instances)
+            $recurrenceSource = $masterEvent ?: $googleEvent;
+            $this->parseRecurrence($event, $recurrenceSource);
+
+            $event->published = '1';
+            $event->save();
+            
+            $this->logger->info('Successfully created Contao event from Google', [
+                'event_id' => $event->id,
+                'google_event_id' => $event->google_event_id,
+                'title' => $event->title,
+                'recurring' => $event->recurring ? 'yes' : 'no'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Error creating Contao event from Google', [
+                'google_event_id' => $googleEvent->getId(),
+                'error' => $e->getMessage()
+            ]);
         }
-
-        // Parse end date/time
-        $end = $googleEvent->getEnd();
-        if ($end->getDateTime()) {
-            $event->endTime = strtotime($end->getDateTime());
-            $event->endDate = strtotime(date('Y-m-d', $event->endTime));
-        } else {
-            // Google all-day events have end date as the day after
-            $endDate = strtotime($end->getDate());
-            $event->endDate = strtotime('-1 day', $endDate);
-            $event->endTime = $event->endDate;
-        }
-
-        // Parse recurring event settings
-        $this->parseRecurrence($event, $googleEvent);
-
-        $event->published = '1';
-        $event->save();
     }
 
     /**
@@ -639,9 +856,19 @@ class GoogleCalendarService
             return;
         }
 
-        // Parse first RRULE line
-        $rrule = $recurrence[0];
-        if (strpos($rrule, 'RRULE:') !== 0) {
+        // Parse RRULE lines (there can be multiple)
+        $rrule = null;
+        foreach ($recurrence as $line) {
+            if (strpos($line, 'RRULE:') === 0) {
+                $rrule = $line;
+                break;
+            }
+        }
+        
+        if (!$rrule) {
+            $this->logger->debug('No RRULE found in recurrence', [
+                'recurrence' => $recurrence
+            ]);
             return;
         }
 
@@ -649,12 +876,18 @@ class GoogleCalendarService
         $rrule = substr($rrule, 6);
         $parts = [];
         foreach (explode(';', $rrule) as $part) {
+            if (strpos($part, '=') === false) {
+                continue;
+            }
             [$key, $value] = explode('=', $part, 2);
             $parts[$key] = $value;
         }
 
         // Check if we have a FREQ
         if (!isset($parts['FREQ'])) {
+            $this->logger->warning('No FREQ found in RRULE', [
+                'rrule' => $rrule
+            ]);
             return;
         }
 
@@ -676,11 +909,24 @@ class GoogleCalendarService
             'unit' => $unit,
             'value' => $interval,
         ]);
+        
+        // Log complex recurring patterns that Contao might not fully support
+        if (isset($parts['BYDAY']) || isset($parts['BYMONTHDAY']) || isset($parts['BYSETPOS'])) {
+            $this->logger->info('Complex recurring pattern detected', [
+                'event_id' => $event->id,
+                'title' => $event->title,
+                'rrule' => $rrule,
+                'note' => 'BYDAY/BYMONTHDAY/BYSETPOS patterns may not be fully supported in Contao'
+            ]);
+        }
 
         // Handle COUNT or UNTIL
         if (isset($parts['COUNT'])) {
             $event->recurrences = (int)$parts['COUNT'];
             $event->repeatEnd = 0;
+            $this->logger->debug('Set recurring COUNT', [
+                'count' => $event->recurrences
+            ]);
         } elseif (isset($parts['UNTIL'])) {
             // Parse UNTIL date (format: YYYYMMDDTHHMMSSZ)
             $until = $parts['UNTIL'];
@@ -694,9 +940,14 @@ class GoogleCalendarService
                 $event->repeatEnd = strtotime($until . ' UTC');
             }
             $event->recurrences = 0;
+            $this->logger->debug('Set recurring UNTIL', [
+                'until' => date('Y-m-d H:i:s', $event->repeatEnd)
+            ]);
         } else {
+            // No end specified - set a default far future date or leave empty
             $event->recurrences = 0;
             $event->repeatEnd = 0;
+            $this->logger->debug('Recurring event with no end date');
         }
     }
 
@@ -705,38 +956,67 @@ class GoogleCalendarService
      */
     private function updateContaoEvent(CalendarEventsModel $event, Event $googleEvent): void
     {
-        $event->tstamp = time();
-        $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
-        $event->teaser = $googleEvent->getDescription() ?: '';
-        $event->location = $googleEvent->getLocation() ?: '';
-        $event->google_updated = strtotime($googleEvent->getUpdated());
+        try {
+            $event->tstamp = time();
+            $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
+            $event->teaser = $googleEvent->getDescription() ?: '';
+            $event->location = $googleEvent->getLocation() ?: '';
+            $event->google_updated = $googleEvent->getUpdated() ? strtotime($googleEvent->getUpdated()) : time();
 
-        // Parse start date/time
-        $start = $googleEvent->getStart();
-        if ($start->getDateTime()) {
-            $event->addTime = '1';
-            $event->startTime = strtotime($start->getDateTime());
-            $event->startDate = strtotime(date('Y-m-d', $event->startTime));
-        } else {
-            $event->addTime = '';
-            $event->startDate = strtotime($start->getDate());
-            $event->startTime = $event->startDate;
+            // Parse start date/time
+            $start = $googleEvent->getStart();
+            if (!$start) {
+                $this->logger->error('Google event has no start date', [
+                    'event_id' => $event->id,
+                    'google_event_id' => $googleEvent->getId()
+                ]);
+                return;
+            }
+            
+            if ($start->getDateTime()) {
+                $event->addTime = '1';
+                $event->startTime = strtotime($start->getDateTime());
+                $event->startDate = strtotime(date('Y-m-d', $event->startTime));
+            } else {
+                $event->addTime = '';
+                $event->startDate = strtotime($start->getDate());
+                $event->startTime = $event->startDate;
+            }
+
+            // Parse end date/time
+            $end = $googleEvent->getEnd();
+            if ($end) {
+                if ($end->getDateTime()) {
+                    $event->endTime = strtotime($end->getDateTime());
+                    $event->endDate = strtotime(date('Y-m-d', $event->endTime));
+                } else {
+                    $endDate = strtotime($end->getDate());
+                    $event->endDate = strtotime('-1 day', $endDate);
+                    $event->endTime = $event->endDate;
+                }
+            } else {
+                // No end date specified, use start date
+                $event->endTime = $event->startTime;
+                $event->endDate = $event->startDate;
+            }
+
+            // Parse recurring event settings
+            $this->parseRecurrence($event, $googleEvent);
+
+            $event->save();
+            
+            $this->logger->info('Successfully updated Contao event from Google', [
+                'event_id' => $event->id,
+                'google_event_id' => $event->google_event_id,
+                'title' => $event->title,
+                'recurring' => $event->recurring ? 'yes' : 'no'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Error updating Contao event from Google', [
+                'event_id' => $event->id,
+                'google_event_id' => $googleEvent->getId(),
+                'error' => $e->getMessage()
+            ]);
         }
-
-        // Parse end date/time
-        $end = $googleEvent->getEnd();
-        if ($end->getDateTime()) {
-            $event->endTime = strtotime($end->getDateTime());
-            $event->endDate = strtotime(date('Y-m-d', $event->endTime));
-        } else {
-            $endDate = strtotime($end->getDate());
-            $event->endDate = strtotime('-1 day', $endDate);
-            $event->endTime = $event->endDate;
-        }
-
-        // Parse recurring event settings
-        $this->parseRecurrence($event, $googleEvent);
-
-        $event->save();
     }
 }

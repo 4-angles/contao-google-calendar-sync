@@ -1,0 +1,35 @@
+{
+    "name": "4-angles/contao-google-calendar-bundle",
+    "type": "contao-bundle",
+    "description": "Google Calendar synchronization bundle for Contao CMS",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "4-angles"
+        }
+    ],
+    "require": {
+        "contao/calendar-bundle": "5.3.*",
+        "contao/core-bundle": "5.3.*",
+        "google/apiclient": "^2.0"
+    },
+    "require-dev": {
+        "contao/manager-plugin": "^2.0"
+    },
+    "conflict": {
+        "contao/manager-plugin": "<2.0 || >=3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "FourAngles\\ContaoGoogleCalendarBundle\\": "src/"
+        }
+    },
+    "extra": {
+        "contao-manager-plugin": "FourAngles\\ContaoGoogleCalendarBundle\\ContaoManager\\Plugin"
+    },
+    "config": {
+        "allow-plugins": {
+            "contao/manager-plugin": true
+        }
+    }
+}

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Command;
+namespace FourAngles\ContaoGoogleCalendarBundle\Command;
 
-use App\Service\GoogleCalendarService;
+use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'app:google-calendar:sync',
+    name: 'google-calendar:sync',
     description: 'Sync Contao calendars with Google Calendar',
 )]
 class GoogleCalendarSyncCommand extends Command

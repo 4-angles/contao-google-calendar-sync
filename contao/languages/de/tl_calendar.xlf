@@ -34,10 +34,6 @@
                 <source>Google → Contao (one-way)</source>
                 <target>Google → Contao (einseitig)</target>
             </trans-unit>
-            <trans-unit id="tl_calendar.google_sync_direction.bidirectional">
-                <source>Bidirectional (two-way)</source>
-                <target>Bidirektional (zweiseitig)</target>
-            </trans-unit>
             <trans-unit id="tl_calendar.google_sync_as_busy.0">
                 <source>Sync as "Busy"</source>
                 <target>Als "Beschäftigt" synchronisieren</target>

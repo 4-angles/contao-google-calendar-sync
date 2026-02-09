@@ -27,7 +27,7 @@ $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_direction'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_direction'],
     'inputType' => 'select',
     'reference' => &$GLOBALS['TL_LANG']['tl_calendar'],
-    'options' => ['to_google'],
+    'options' => ['to_google','from_google'],
     'eval' => ['tl_class' => 'w50'],
     'sql' => "varchar(32) NOT NULL default 'to_google'",
 ];
@@ -76,7 +76,7 @@ class tl_calendar_google extends Backend
     public function getGoogleCalendarOptions($dc)
     {
         try {
-            $googleService = System::getContainer()->get('App\Service\GoogleCalendarService');
+            $googleService = System::getContainer()->get('FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService');
             $calendars = $googleService->getCalendarList();
             
             $options = [];
@@ -129,7 +129,7 @@ class tl_calendar_google extends Backend
         $url = '/contao/google-calendar-sync-all';
         $title = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'][1] ?? 'Sync all calendars';
         $label = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'][0] ?? 'Sync All';
-        $icon = 'sync.svg';
+        $icon = '/sync-calendar.svg';
         $confirm = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all_confirm'] ?? 'Sync all calendars with Google?';
         
         return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '" onclick="if(!confirm(\'' . \Contao\StringUtil::specialchars($confirm) . '\'))return false">' . \Contao\Image::getHtml($icon, $label) . ' ' . $label . '</a> ';

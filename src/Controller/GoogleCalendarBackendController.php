@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Controller;
+namespace FourAngles\ContaoGoogleCalendarBundle\Controller;
 
-use App\Service\GoogleCalendarService;
+use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Contao\CalendarModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\Message;
@@ -32,6 +32,68 @@ class GoogleCalendarBackendController extends AbstractController
         $this->googleService = $googleService;
         $this->logger = $logger;
         $this->framework = $framework;
+    }
+
+    /**
+     * Import events from Google Calendar action (triggered from tl_calendar_events)
+     */
+    #[Route('/google-calendar-import-events', name: 'google_calendar_import_events')]
+    public function importEventsAction(Request $request): Response
+    {
+        $this->framework->initialize();
+        
+        $calendarId = $request->query->get('id');
+        $calendar = CalendarModel::findByPk($calendarId);
+        
+
+        if (!$calendar) {
+            Message::addError('Calendar not found');
+            $this->logger->error('Import failed: Calendar not found with ID ' . $calendarId);
+            return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+        }
+
+        if (!$calendar->google_sync_enabled || !$calendar->google_calendar_id) {
+            Message::addError('Google Calendar sync is not enabled for this calendar');
+            $this->logger->warning('Import skipped: Calendar ' . $calendar->id . ' does not have sync enabled or calendar ID set');
+            return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+        }
+
+        try {
+            $this->logger->info('Starting import from Google Calendar for calendar ' . $calendar->id, [
+                'google_calendar_id' => $calendar->google_calendar_id
+            ]);
+
+            // Check if Google Calendar service is available
+            if (!$this->googleService->getService()) {
+                Message::addError('Google Calendar API is not configured or authenticated. Please check your settings.');
+                $this->logger->error('Google Calendar service not available');
+                return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+            }
+
+            // Import from Google to Contao
+            $count = $this->googleService->syncFromGoogle($calendar, $calendar->google_calendar_id);
+            
+            // Update last sync timestamp
+            $calendar->google_last_sync = time();
+            $calendar->save();
+
+            if ($count > 0) {
+                Message::addConfirmation("Successfully imported $count event(s) from Google Calendar");
+                $this->logger->info("Imported $count events from Google Calendar");
+            } else {
+                Message::addInfo("No new events to import from Google Calendar");
+                $this->logger->info("No new events imported from Google Calendar");
+            }
+        } catch (\Exception $e) {
+            Message::addError('Import failed: ' . $e->getMessage());
+            $this->logger->error('Google Calendar import error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'calendar_id' => $calendar->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+
+        return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
     }
 
     /**

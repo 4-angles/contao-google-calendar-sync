@@ -1,6 +1,6 @@
 <?php
 
-namespace App\EventListener;
+namespace FourAngles\ContaoGoogleCalendarBundle\EventListener;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\DataContainer;

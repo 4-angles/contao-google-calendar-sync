@@ -1,48 +1,50 @@
-# config/services.yaml
 services:
     _defaults:
         autowire: true
         autoconfigure: true
 
-    App\:
+    FourAngles\ContaoGoogleCalendarBundle\:
         resource: '../src/'
         exclude:
-            - '../src/Kernel.php'
+            - '../src/FourAnglesContaoGoogleCalendarBundle.php'
+            - '../src/DependencyInjection/'
+            - '../src/ContaoManager/'
 
     # Google Calendar Service
-    App\Service\GoogleCalendarService:
+    FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService:
         public: true
         arguments:
             - '%kernel.project_dir%'
             - '@logger'
 
     # Event Listeners
-    App\EventListener\CalendarEventsSyncListener:
+    FourAngles\ContaoGoogleCalendarBundle\EventListener\CalendarEventsSyncListener:
         arguments:
-            - '@App\Service\GoogleCalendarService'
+            - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
             - '@logger'
 
-    App\EventListener\GoogleCalendarCronListener:
+    FourAngles\ContaoGoogleCalendarBundle\EventListener\GoogleCalendarCronListener:
         arguments:
-            - '@App\Service\GoogleCalendarService'
+            - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
             - '@logger'
         tags:
+            - { name: contao.hook, hook: minutely }
             - { name: contao.hook, hook: hourly }
 
-    App\EventListener\GoogleCalendarInfoListener: ~
+    FourAngles\ContaoGoogleCalendarBundle\EventListener\GoogleCalendarInfoListener: ~
 
     # Commands
-    App\Command\GoogleCalendarSyncCommand:
+    FourAngles\ContaoGoogleCalendarBundle\Command\GoogleCalendarSyncCommand:
         arguments:
-            - '@App\Service\GoogleCalendarService'
+            - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
             - '@contao.framework'
         tags:
             - { name: 'console.command' }
 
     # Controllers
-    App\Controller\GoogleCalendarBackendController:
+    FourAngles\ContaoGoogleCalendarBundle\Controller\GoogleCalendarBackendController:
         arguments:
-            - '@App\Service\GoogleCalendarService'
+            - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
             - '@logger'
             - '@contao.framework'
         tags:
