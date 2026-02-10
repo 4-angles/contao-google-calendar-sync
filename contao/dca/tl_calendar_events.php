@@ -116,7 +116,7 @@ class tl_calendar_events_google
             return;
         }
         
-        $logger = \Contao\System::getContainer()->get('monolog.logger.google_calendar');
+        $logger = \Contao\System::getContainer()->get('logger');
         $logger->info('handleToggleAction: Toggle detected', [
             'tid' => $tid,
             'state' => $state
@@ -217,7 +217,7 @@ class tl_calendar_events_google
      */
     public function toggleVisibilityIcon($row, $href, $label, $title, $icon, $attributes)
     {
-        $logger = \Contao\System::getContainer()->get('monolog.logger.google_calendar');
+        $logger = \Contao\System::getContainer()->get('logger');
         
         // Check if toggle action is being executed (not just rendering the icon)
         if (\Contao\Input::get('tid') == $row['id'] && strlen(\Contao\Input::get('state'))) {
@@ -361,7 +361,7 @@ class tl_calendar_events_google
      */
     public function onPublishedToggle($value, DataContainer $dc)
     {
-        $logger = \Contao\System::getContainer()->get('monolog.logger.google_calendar');
+        $logger = \Contao\System::getContainer()->get('logger');
         $logger->info('onPublishedToggle called', [
             'event_id' => $dc->id ?? 'null',
             'new_value' => $value
@@ -429,7 +429,7 @@ class tl_calendar_events_google
             }
         } catch (\Exception $e) {
             // Log error but don't block the save
-            \Contao\System::getContainer()->get('monolog.logger.google_calendar')->error('Error syncing event on publish toggle: ' . $e->getMessage());
+            \Contao\System::getContainer()->get('logger')->error('Error syncing event on publish toggle: ' . $e->getMessage());
         }
         
         return $value;
