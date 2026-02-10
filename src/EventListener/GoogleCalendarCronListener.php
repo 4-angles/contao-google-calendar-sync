@@ -95,25 +95,25 @@ class GoogleCalendarCronListener
                     
                 if ($events) {
                     foreach ($events as $event) {
-                        // If event is unpublished/hidden and has a Google Calendar ID, delete it
-                        if (!$event->published && $event->google_event_id) {
+                        // If event is unpublished/hidden and has an export ID, delete from export calendar
+                        if (!$event->published && $event->google_export_event_id) {
                             $this->googleService->deleteEventFromGoogle(
-                                $event->google_event_id,
+                                $event->google_export_event_id,
                                 $calendar->google_calendar_id_export
                             );
-                            $event->google_event_id = '';
+                            $event->google_export_event_id = '';
                             $event->save();
                             $syncCount++;
                             continue;
                         }
                         
-                        // If recurring event has ended, delete from Google Calendar
-                        if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_event_id) {
+                        // If recurring event has ended, delete from export calendar
+                        if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_export_event_id) {
                             $this->googleService->deleteEventFromGoogle(
-                                $event->google_event_id,
+                                $event->google_export_event_id,
                                 $calendar->google_calendar_id_export
                             );
-                            $event->google_event_id = '';
+                            $event->google_export_event_id = '';
                             $event->save();
                             $syncCount++;
                             continue;
@@ -131,11 +131,12 @@ class GoogleCalendarCronListener
 
                         $googleEventId = $this->googleService->syncEventToGoogle(
                             $event,
-                            $calendar->google_calendar_id_export
+                            $calendar->google_calendar_id_export,
+                            $event->google_export_event_id ?: null
                         );
                         
                         if ($googleEventId) {
-                            $event->google_event_id = $googleEventId;
+                            $event->google_export_event_id = $googleEventId;
                             $event->google_updated = time();
                             $event->save();
                             $syncCount++;

@@ -47,18 +47,34 @@ class CalendarEventsSyncListener
             return;
         }
 
-        // If event is unpublished and has a Google Calendar ID, delete it from Google
-        if (!$event->published && $event->google_event_id) {
-            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id_export);
-            $event->google_event_id = '';
-            $event->save();
+        $this->logger->info('onSubmitCalendarEvent triggered', [
+            'event_id' => $event->id,
+            'published' => $event->published,
+            'google_export_event_id' => $event->google_export_event_id
+        ]);
+
+        // If event is unpublished and has an export ID, delete it from export calendar
+        if (!$event->published && $event->google_export_event_id) {
+            $this->logger->info('Unpublishing event - deleting from export calendar', [
+                'event_id' => $event->id,
+                'google_export_event_id' => $event->google_export_event_id,
+                'export_calendar' => $calendar->google_calendar_id_export
+            ]);
+            $success = $this->googleService->deleteEventFromGoogle($event->google_export_event_id, $calendar->google_calendar_id_export);
+            if ($success) {
+                $event->google_export_event_id = '';
+                $event->save();
+                $this->logger->info('Successfully deleted unpublished event from export calendar');
+            } else {
+                $this->logger->error('Failed to delete unpublished event from export calendar');
+            }
             return;
         }
         
-        // If recurring event has ended, delete from Google Calendar
-        if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_event_id) {
-            $this->googleService->deleteEventFromGoogle($event->google_event_id, $calendar->google_calendar_id_export);
-            $event->google_event_id = '';
+        // If recurring event has ended, delete from export calendar
+        if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time() && $event->google_export_event_id) {
+            $this->googleService->deleteEventFromGoogle($event->google_export_event_id, $calendar->google_calendar_id_export);
+            $event->google_export_event_id = '';
             $event->save();
             $this->logger->info('Deleted expired recurring event from Google Calendar', [
                 'event_id' => $event->id,
@@ -74,18 +90,18 @@ class CalendarEventsSyncListener
         }
 
             
-        // Sync to Google Calendar
-        $googleEventId = $this->googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export);
+        // Sync to Google Calendar (use existing export ID if available)
+        $googleEventId = $this->googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export, $event->google_export_event_id ?: null);
         if ($googleEventId) {
-            // Update event with Google Calendar ID
-            $event->google_event_id = $googleEventId;
+            // Update event with export Google Calendar ID
+            $event->google_export_event_id = $googleEventId;
             $event->google_updated = time();
             $event->save();
 
             $this->logger->info('Event synced to Google Calendar', [
                 'event_id' => $event->id,
                 'event_title' => $event->title,
-                'google_event_id' => $googleEventId
+                'google_export_event_id' => $googleEventId
             ]);
         }
     }
@@ -101,7 +117,7 @@ class CalendarEventsSyncListener
         }
 
         $event = CalendarEventsModel::findByPk($dc->id);
-        if (!$event || !$event->google_event_id) {
+        if (!$event || !$event->google_export_event_id) {
             return;
         }
 
@@ -111,9 +127,9 @@ class CalendarEventsSyncListener
             return;
         }
 
-        // Delete from Google Calendar
+        // Delete from export calendar
         $success = $this->googleService->deleteEventFromGoogle(
-            $event->google_event_id,
+            $event->google_export_event_id,
             $calendar->google_calendar_id_export
         );
 
@@ -132,6 +148,7 @@ class CalendarEventsSyncListener
         $event = CalendarEventsModel::findByPk($insertId);
         if ($event) {
             $event->google_event_id = '';
+            $event->google_export_event_id = '';
             $event->google_updated = 0;
             $event->save();
         }

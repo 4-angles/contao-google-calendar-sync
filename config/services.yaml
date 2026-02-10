@@ -15,19 +15,19 @@ services:
         public: true
         arguments:
             - '%kernel.project_dir%'
-            - '@logger'
+            - '@monolog.logger.google_calendar'
             - '@contao.framework'
 
     # Event Listeners
     FourAngles\ContaoGoogleCalendarBundle\EventListener\CalendarEventsSyncListener:
         arguments:
             - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
-            - '@logger'
+            - '@monolog.logger.google_calendar'
 
     FourAngles\ContaoGoogleCalendarBundle\EventListener\GoogleCalendarCronListener:
         arguments:
             - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
-            - '@logger'
+            - '@monolog.logger.google_calendar'
         tags:
             - { name: contao.hook, hook: minutely }
             - { name: contao.hook, hook: hourly }
@@ -46,7 +46,7 @@ services:
     FourAngles\ContaoGoogleCalendarBundle\Controller\GoogleCalendarBackendController:
         arguments:
             - '@FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService'
-            - '@logger'
+            - '@monolog.logger.google_calendar'
             - '@contao.framework'
         tags:
             - { name: 'controller.service_arguments' }

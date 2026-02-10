@@ -1,0 +1,19 @@
+monolog:
+    channels:
+        - google_calendar
+
+    handlers:
+        # Google Calendar specific log file
+        google_calendar:
+            type: stream
+            path: "%kernel.logs_dir%/google_calendar_%kernel.environment%.log"
+            level: debug
+            channels: ["google_calendar"]
+            formatter: monolog.formatter.line
+
+        # Make sure google_calendar logs don't also go to main log
+        main:
+            type: stream
+            path: "%kernel.logs_dir%/%kernel.environment%.log"
+            level: debug
+            channels: ["!google_calendar"]
