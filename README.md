@@ -6,6 +6,10 @@
 
 Bi-directional synchronization between Contao CMS calendars and Google Calendar. Import events from Google Calendar into Contao and export Contao events to Google Calendar with automatic scheduling via cron jobs.
 
+## Version control
+
+I will always publish releases version based on which Contao version they support, so if its 5.3.0 it supports 5.3.* Contao version, etc...
+
 ## Features
 
 - ✅ **Bi-directional Sync**: Import from Google Calendar to Contao and export Contao events to Google Calendar
