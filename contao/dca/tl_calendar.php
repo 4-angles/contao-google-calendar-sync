@@ -55,8 +55,10 @@ $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_busy_text'] = [
 $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_until'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_until'],
     'inputType' => 'text',
-    'default' => strtotime('+1 year'),
     'eval' => ['rgxp' => 'date', 'datepicker' => true, 'tl_class' => 'w50 wizard'],
+    'load_callback' => [
+        ['tl_calendar_google', 'setDefaultSyncUntil']
+    ],
     'sql' => "int(10) unsigned NOT NULL default 0",
 ];
 
@@ -108,6 +110,18 @@ class tl_calendar_google extends Backend
         } catch (\Exception $e) {
             return [];
         }
+    }
+
+    /**
+     * Set default sync until date (+1 year from now)
+     */
+    public function setDefaultSyncUntil($value, $dc)
+    {
+        // Only set default for new records or when value is 0/empty
+        if (!$value || $value == 0) {
+            return strtotime('+1 year');
+        }
+        return $value;
     }
 
     /**
