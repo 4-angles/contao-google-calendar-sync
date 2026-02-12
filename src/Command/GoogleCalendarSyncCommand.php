@@ -3,7 +3,6 @@
 namespace FourAngles\ContaoGoogleCalendarBundle\Command;
 
 use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
-use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -95,36 +94,12 @@ class GoogleCalendarSyncCommand extends Command
                 if (!$importOnly && $calendar->google_calendar_id_export) {
                     $io->text('Exporting TO Google Calendar...');
                     
-                    $events = CalendarEventsModel::findBy('pid', $calendar->id);
-                    
-                    if ($events) {
-                        $count = 0;
-                        foreach ($events as $event) {
-                            if (!$dryRun) {
-                                $googleEventId = $this->googleService->syncEventToGoogle(
-                                    $event,
-                                    $calendar->google_calendar_id_export
-                                );
-                                
-                                if ($googleEventId) {
-                                    $event->google_event_id = $googleEventId;
-                                    $event->google_updated = time();
-                                    $event->save();
-                                    $count++;
-                                }
-                            } else {
-                                $count++;
-                            }
-                        }
-                        
-                        if ($dryRun) {
-                            $io->info("[DRY RUN] Would sync $count events to Google Calendar");
-                        } else {
-                            $io->success("Synced $count events to Google Calendar");
-                            $totalSynced += $count;
-                        }
+                    if (!$dryRun) {
+                        $count = $this->googleService->exportToGoogle($calendar, $calendar->google_calendar_id_export);
+                        $io->success("Exported $count events to Google Calendar");
+                        $totalSynced += $count;
                     } else {
-                        $io->info('No events found with sync enabled');
+                        $io->info('[DRY RUN] Would export events to Google Calendar');
                     }
                 }
 
