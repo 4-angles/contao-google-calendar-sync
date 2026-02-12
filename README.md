@@ -56,7 +56,7 @@ I will always publish releases version based on which Contao version they suppor
    - **Developer contact information**: Your email address
 4. Click **Save and Continue**
 5. **Scopes**: Click "Add or Remove Scopes"
-   - Add: `https://www.googleapis.com/auth/calendar` (See, edit, share, and permanently delete all calendars)
+   - Add: `https://www.googleapis.com/auth/calendar` (See, edit, share....)
 6. Click **Save and Continue**
 7. **Test users** (for External apps in testing): Add your Google account email
 8. Click **Save and Continue**
@@ -149,7 +149,7 @@ crontab -e
 - Respects the configured sync window
 - Updates existing events if changed in Google
 
-**Export (Every Hour)**
+**Export (Every Minute)**
 - Pushes Contao events to Google Calendar
 - Only exports published events
 - Skips events that haven't been modified (if they exist in Google calendar)
