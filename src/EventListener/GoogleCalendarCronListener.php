@@ -5,6 +5,7 @@ namespace FourAngles\ContaoGoogleCalendarBundle\EventListener;
 use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Contao\CalendarModel;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCronJob;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -19,11 +20,13 @@ class GoogleCalendarCronListener
 {
     private GoogleCalendarService $googleService;
     private LoggerInterface $logger;
+    private ContaoFramework $framework;
 
-    public function __construct(GoogleCalendarService $googleService, LoggerInterface $logger)
+    public function __construct(GoogleCalendarService $googleService, LoggerInterface $logger, ContaoFramework $framework)
     {
         $this->googleService = $googleService;
         $this->logger = $logger;
+        $this->framework = $framework;
     }
 
     /**
@@ -38,7 +41,7 @@ class GoogleCalendarCronListener
     /**
      * Run on hourly cron – export events to Google
      */
-    #[AsCronJob('hourly')]
+    #[AsCronJob('* * * * *')]
     public function onHourly(): void
     {
         $this->exportToGoogle();
@@ -50,6 +53,8 @@ class GoogleCalendarCronListener
      */
     private function importFromGoogle(): void
     {
+        $this->framework->initialize();
+        
         $calendars = CalendarModel::findBy('google_sync_enabled', '1');
 
         if (!$calendars) {
@@ -89,6 +94,8 @@ class GoogleCalendarCronListener
      */
     private function exportToGoogle(): void
     {
+        $this->framework->initialize();
+        
         $calendars = CalendarModel::findBy('google_sync_enabled', '1');
 
         if (!$calendars) {

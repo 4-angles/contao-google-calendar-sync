@@ -65,7 +65,6 @@ Bi-directional synchronization between Contao CMS calendars and Google Calendar.
 4. **Name**: Give it a descriptive name (e.g., "Contao Calendar OAuth")
 5. **Authorized redirect URIs**: Add your callback URL
    - Format: `https://yourdomain.com/contao/google-calendar-callback`
-   - For local development: `http://localhost:8000/contao/google-calendar-callback`
    - **Note**: The redirect URI is now generated automatically, so you just need to add it here in Google Console
 6. Click **Create**
 7. Copy the **Client ID** and **Client Secret** - you'll need these for configuration
@@ -136,7 +135,7 @@ php vendor/bin/contao-console contao:cron:list
 
 You should see:
 - `onMinutely` - Imports from Google Calendar (every minute)
-- `onHourly` - Exports to Google Calendar (every hour)
+- `onMinutely` - Exports to Google Calendar (every minute)
 
 ### Manual Cron Setup (Production)
 
@@ -172,7 +171,7 @@ You can also trigger sync manually:
 # Sync all calendars
 php vendor/bin/contao-console google-calendar:sync
 
-# Sync specific calendar
+# Sync specific calendar **Work in Progress**
 php vendor/bin/contao-console google-calendar:sync 5
 
 # Import only
