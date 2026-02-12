@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="en" datatype="plaintext" original="tl_google_calendar_settings">
+    <body>
+      <trans-unit id="tl_google_calendar_settings.settings_legend">
+        <source>Google Calendar Settings</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.info_legend">
+        <source>Information</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.client_id.0">
+        <source>Google Client ID</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.client_id.1">
+        <source>OAuth 2.0 Client ID from Google Cloud Console (overrides GOOGLE_CALENDAR_CLIENT_ID in .env if set)</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.client_secret.0">
+        <source>Google Client Secret</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.client_secret.1">
+        <source>OAuth 2.0 Client Secret from Google Cloud Console (overrides GOOGLE_CALENDAR_CLIENT_SECRET in .env if set)</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.application_name.0">
+        <source>Application Name</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.application_name.1">
+        <source>Name shown to users during OAuth (optional, overrides GOOGLE_CALENDAR_APPLICATION_NAME in .env if set)</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.auth_status.0">
+        <source>Authentication Status</source>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_settings.auth_status.1">
+        <source>Current Google Calendar authentication status</source>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

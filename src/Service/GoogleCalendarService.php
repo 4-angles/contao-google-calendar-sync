@@ -12,6 +12,7 @@ use Google\Service\Calendar;
 use Google\Service\Calendar\Event;
 use Google\Service\Calendar\EventDateTime;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class GoogleCalendarService
 {
@@ -20,6 +21,7 @@ class GoogleCalendarService
     private string $credentialsPath;
     private LoggerInterface $logger;
     private ContaoFramework $framework;
+    private UrlGeneratorInterface $router;
     private int $lastApiCall = 0;
     private int $minApiDelay = 100000; // 100ms in microseconds (Google allows 10 req/sec)
     private int $maxRetries = 3;
@@ -27,11 +29,12 @@ class GoogleCalendarService
     private int $currentMinute = 0;
     private int $maxCallsPerMinute = 590; // Stay under 600/minute limit
 
-    public function __construct(string $projectDir, LoggerInterface $logger, ContaoFramework $framework)
+    public function __construct(string $projectDir, LoggerInterface $logger, ContaoFramework $framework, UrlGeneratorInterface $router)
     {
         $this->credentialsPath = $projectDir . '/var/google-calendar-credentials.json';
         $this->logger = $logger;
         $this->framework = $framework;
+        $this->router = $router;
     }
 
     /**
@@ -43,33 +46,26 @@ class GoogleCalendarService
             return $this->client;
         }
 
-        $enabled = $_ENV['GOOGLE_CALENDAR_ENABLED'] ?? false;
-        // Handle string "true"/"false" from .env files
-        if (is_string($enabled)) {
-            $enabled = filter_var($enabled, FILTER_VALIDATE_BOOLEAN);
-        }
-        if (!$enabled) {
-            $this->logger->warning('Google Calendar is not enabled in environment configuration (set GOOGLE_CALENDAR_ENABLED=true)');
-            return null;
-        }
-
         try {
+            // Get settings from database (takes precedence) or .env (fallback)
+            $settings = $this->getSettings();
+        
+
             $this->client = new Client();
-            $this->client->setApplicationName($_ENV['GOOGLE_CALENDAR_APPLICATION_NAME'] ?? 'Contao Calendar Sync');
+            $this->client->setApplicationName($settings['application_name']);
             $this->client->setScopes(Calendar::CALENDAR);
             
-            $clientId = $_ENV['GOOGLE_CALENDAR_CLIENT_ID'] ?? '';
-            $clientSecret = $_ENV['GOOGLE_CALENDAR_CLIENT_SECRET'] ?? '';
-            $redirectUri = $_ENV['GOOGLE_CALENDAR_REDIRECT_URI'] ?? '';
-            
-            if (empty($clientId) || empty($clientSecret)) {
+            if (empty($settings['client_id']) || empty($settings['client_secret'])) {
                 $this->logger->error('Google Calendar credentials are not configured');
                 return null;
             }
             
+            // Generate redirect URI dynamically from current environment
+            $redirectUri = $this->router->generate('google_calendar_callback', [], UrlGeneratorInterface::ABSOLUTE_URL);
+            
             $this->client->setAuthConfig([
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
+                'client_id' => $settings['client_id'],
+                'client_secret' => $settings['client_secret'],
                 'redirect_uris' => [$redirectUri],
             ]);
             $this->client->setRedirectUri($redirectUri);
@@ -105,6 +101,49 @@ class GoogleCalendarService
             ]);
             return null;
         }
+    }
+
+    /**
+     * Get Google Calendar settings from Contao config (priority) or .env (fallback)
+     */
+    private function getSettings(): array
+    {
+        $settings = [
+            'client_id' => '',
+            'client_secret' => '',
+            'application_name' => 'Contao Calendar Sync'
+        ];
+
+        // Try to get settings from Contao config first
+        $configClientId = \Contao\Config::get('googleCalendarClientId');
+        $configClientSecret = \Contao\Config::get('googleCalendarClientSecret');
+        $configApplicationName = \Contao\Config::get('googleCalendarApplicationName');
+
+        if (!empty($configClientId)) {
+            $settings['client_id'] = $configClientId;
+            $this->logger->debug('Using Google Calendar Client ID from Contao config');
+        }
+        if (!empty($configClientSecret)) {
+            $settings['client_secret'] = $configClientSecret;
+            $this->logger->debug('Using Google Calendar Client Secret from Contao config');
+        }
+        if (!empty($configApplicationName)) {
+            $settings['application_name'] = $configApplicationName;
+            $this->logger->debug('Using Google Calendar Application Name from Contao config');
+        }
+
+        // Fall back to .env for any empty values
+        if (empty($settings['client_id'])) {
+            $settings['client_id'] = $_ENV['GOOGLE_CALENDAR_CLIENT_ID'] ?? '';
+        }
+        if (empty($settings['client_secret'])) {
+            $settings['client_secret'] = $_ENV['GOOGLE_CALENDAR_CLIENT_SECRET'] ?? '';
+        }
+        if (empty($settings['application_name']) || $settings['application_name'] === 'Contao Calendar Sync') {
+            $settings['application_name'] = $_ENV['GOOGLE_CALENDAR_APPLICATION_NAME'] ?? 'Contao Calendar Sync';
+        }
+
+        return $settings;
     }
 
     /**

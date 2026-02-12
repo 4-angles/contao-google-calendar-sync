@@ -16,3 +16,10 @@ $GLOBALS['TL_CTE']['files']['downloads'] = \Contao\ContentDownloads::class;
 $GLOBALS['TL_CTE']['files']['download'] = \Contao\ContentDownload::class;
 $GLOBALS['TL_CTE']['includes']['teaser'] = \Contao\ContentTeaser::class;
 $GLOBALS['TL_CTE']['texts']['text'] = \Contao\ContentText::class;
+
+// Google Calendar Settings Backend Module
+$GLOBALS['BE_MOD']['system']['google_calendar_settings'] = [
+    'tables' => ['tl_google_calendar_settings'],
+    'icon' => 'bundles/fouranglescontaogooglecalendar/icons/sync-calendar.svg'
+];
+
