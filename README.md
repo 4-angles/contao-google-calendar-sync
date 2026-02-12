@@ -74,7 +74,7 @@ Bi-directional synchronization between Contao CMS calendars and Google Calendar.
 Install via Composer:
 
 ```bash
-composer require fourangles/contao-google-calendar-bundle
+composer require 4-angles/contao-google-calendar-bundle
 ```
 
 Or manually:
@@ -124,18 +124,6 @@ GOOGLE_CALENDAR_APPLICATION_NAME="Contao Calendar Sync"
 ## Cron Job Setup
 
 The bundle provides automatic synchronization via Contao's cron system:
-
-### Automatic Cron (Contao 5+)
-
-Contao 5+ runs cron jobs automatically when the site receives traffic. Verify cron jobs are registered:
-
-```bash
-php vendor/bin/contao-console contao:cron:list
-```
-
-You should see:
-- `onMinutely` - Imports from Google Calendar (every minute)
-- `onMinutely` - Exports to Google Calendar (every minute)
 
 ### Manual Cron Setup (Production)
 
