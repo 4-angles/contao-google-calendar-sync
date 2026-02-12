@@ -134,7 +134,7 @@ For production environments, set up a system cron job for better reliability:
 crontab -e
 
 # Add this line (runs every minute)
-* * * * * cd /path/to/contao && php vendor/bin/contao-console contao:cron >> /dev/null 2>&1
+* * * * * cd /path/to/contao && php vendor/bin/contao-console google-calendar:sync >> /dev/null 2>&1
 ```
 
 ### Cron Schedule Details
