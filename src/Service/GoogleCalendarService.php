@@ -409,10 +409,13 @@ class GoogleCalendarService
             return 0;
         }
 
-        // Get all published events from the Contao calendar
+        // Get configurable sync date (default 1 year ahead)
+        $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+
+        // Get all published events from the Contao calendar within the sync range
         $events = CalendarEventsModel::findBy(
-            ['pid=?', 'published=?'],
-            [$calendar->id, 1],
+            ['pid=?', 'published=?', 'startDate<=?'],
+            [$calendar->id, 1, $syncUntil],
             ['order' => 'startDate ASC']
         );
 

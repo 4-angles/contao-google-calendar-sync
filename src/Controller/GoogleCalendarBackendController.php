@@ -194,16 +194,16 @@ class GoogleCalendarBackendController extends AbstractController
             }
 
             if ($calendar->google_calendar_id_export) {
-                // Sync all events from this calendar to Google
-                $events = \Contao\CalendarEventsModel::findBy('pid', $calendar->id);
+                // Sync all events from this calendar to Google (within date range)
+                $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+                $events = \Contao\CalendarEventsModel::findBy(
+                    ['pid=?', 'published=?', 'startDate<=?'],
+                    [$calendar->id, 1, $syncUntil]
+                );
                 
                 if ($events) {
                     $toGoogleCount = 0;
                     foreach ($events as $event) {
-                        // Skip unpublished events
-                        if (!$event->published) {
-                            continue;
-                        }
                         
                         $googleEventId = $this->googleService->syncEventToGoogle(
                             $event,
@@ -282,7 +282,11 @@ class GoogleCalendarBackendController extends AbstractController
                 }
 
                 if ($calendar->google_calendar_id_export) {
-                    $events = \Contao\CalendarEventsModel::findBy('pid', $calendar->id);
+                    $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+                    $events = \Contao\CalendarEventsModel::findBy(
+                        ['pid=?', 'published=?', 'startDate<=?'],
+                        [$calendar->id, 1, $syncUntil]
+                    );
                     
                     if ($events) {
                         foreach ($events as $event) {
