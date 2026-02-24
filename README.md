@@ -18,10 +18,12 @@ I will always publish releases version based on which Contao version they suppor
 - ✅ **Separate Calendars**: Different calendars for import and export to prevent sync loops
 - ✅ **Recurring Events**: Full support for recurring events (RRULE parsing)
 - ✅ **Privacy Mode**: Option to sync events as "Busy" without details
+- ✅ **Import Location Override**: Optionally write a fixed value to the Contao event `location` field during import
 - ✅ **Flexible Configuration**: Configure via backend UI or .env file
 - ✅ **Rate Limiting**: Built-in Google API rate limit handling
 - ✅ **Sync Window**: Configure date range for event synchronization
 - ✅ **Auto-cleanup**: Removes deleted events from both systems
+- ✅ **Event-Level Sync Tracking**: Read-only Google tracking fields and sync status icons in `tl_calendar_events`
 
 ## Requirements
 
@@ -197,6 +199,16 @@ In **Content** → **Calendar Events**:
 - **Import from Google**: Manually trigger import (icon in toolbar)
 - **Export to Google**: Manually trigger export (icon in toolbar)
 
+Buttons are shown only when the current calendar has Google sync enabled and the corresponding import/export calendar is configured.
+
+### Event-Level Behavior (`tl_calendar_events`)
+
+- Adds read-only tracking fields for Google IDs and sync metadata
+- Adds sync status icons in the event list label (import/export)
+- Intercepts publish/unpublish toggle and syncs to Google immediately
+- Removes exported Google event when an event is unpublished
+- Resets event origin to `contao` when a user edits an imported event, so changes can be exported again
+
 ## Configuration Options
 
 ### Calendar-Level Settings
@@ -209,6 +221,8 @@ In **Content** → **Calendar Events**:
 | **Sync Until** | Import/export events up to this date (default: +1 year) |
 | **Sync as Busy** | Hide event details, show as "Busy" only |
 | **Busy Text** | Custom text for busy events (default: "Busy") |
+| **Override import location** | If enabled, imported events use custom location text |
+| **Import location text** | Custom value written into imported event `location` field |
 
 ### Global Settings (System → Google Calendar Settings)
 
@@ -246,7 +260,7 @@ In **Content** → **Calendar Events**:
 
 ### Database Fields
 
-Additional fields added to `tl_calendar_events`:
+Additional read-only tracking fields added to `tl_calendar_events`:
 
 | Field | Purpose |
 |-------|---------|
