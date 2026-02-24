@@ -323,7 +323,7 @@ The bundle handles Google API rate limits automatically:
 
 1. **Complex Recurring Patterns**: Some advanced RRULE patterns (BYDAY, BYMONTHDAY, BYSETPOS) may not sync perfectly between systems due to differences in how Contao and Google Calendar handle recurring events
 
-2. **Timezone Handling**: Events are stored in Europe/Berlin timezone by default. Multi-timezone support may need additional configuration
+2. **Timezone Handling**: Events are stored in google calendar timezone by default. Multi-timezone support may need additional configuration, or maybe not I didnt tested trough
 
 3. **All-Day Events**: Google Calendar all-day events use exclusive end dates (end date + 1 day), which is automatically handled but may cause confusion when viewing raw data
 
@@ -341,13 +341,6 @@ The bundle handles Google API rate limits automatically:
 - [ ] Add authentication status display in settings page
 - [ ] Add "Re-authenticate" button in backend
 - [ ] Better error messages for users (currently logged, not always shown)
-- [ ] Add sync status dashboard/widget
-- [ ] Implement batch operations for large event sets
-- [ ] Support for event attachments
-- [ ] Support for attendees/guest lists
-- [ ] Multi-timezone support
-- [ ] Event categories/tags mapping
-- [ ] Sync event colors/labels
 
 ## Contributing
 
