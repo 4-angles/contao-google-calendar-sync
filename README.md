@@ -92,7 +92,7 @@ Or manually:
 
 You can configure the bundle in two ways (backend UI takes precedence):
 
-#### Option A: Backend UI (Recommended for End Users)
+#### Option A: Backend UI (Recommended)
 
 1. Log in to Contao backend
 2. Navigate to **System** → **Google Calendar Settings**
@@ -102,7 +102,7 @@ You can configure the bundle in two ways (backend UI takes precedence):
    - **Application Name**: (Optional) Custom name shown during OAuth
 4. Save
 
-#### Option B: Environment Variables (.env)
+#### Option B: Environment Variables (.env) (Test 1st)
 
 Add to your `.env.local` file:
 
