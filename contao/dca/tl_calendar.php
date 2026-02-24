@@ -52,6 +52,20 @@ $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_busy_text'] = [
     'sql' => "varchar(255) NOT NULL default ''",
 ];
 
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_import_location_override'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_import_location_override'],
+    'inputType' => 'checkbox',
+    'eval' => ['submitOnChange' => true, 'tl_class' => 'w50 m12'],
+    'sql' => "char(1) NOT NULL default ''",
+];
+
+$GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_import_location_text'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_import_location_text'],
+    'inputType' => 'text',
+    'eval' => ['maxlength' => 255, 'tl_class' => 'w50'],
+    'sql' => "varchar(255) NOT NULL default ''",
+];
+
 $GLOBALS['TL_DCA']['tl_calendar']['fields']['google_sync_until'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_calendar']['google_sync_until'],
     'inputType' => 'text',
@@ -71,8 +85,10 @@ PaletteManipulator::create()
 // Create subpalette for when google_sync_enabled is checked
 $GLOBALS['TL_DCA']['tl_calendar']['palettes']['__selector__'][] = 'google_sync_enabled';
 $GLOBALS['TL_DCA']['tl_calendar']['palettes']['__selector__'][] = 'google_sync_as_busy';
-$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_enabled'] = 'google_calendar_id_import,google_calendar_id_export,google_sync_until,google_sync_as_busy,google_last_sync';
+$GLOBALS['TL_DCA']['tl_calendar']['palettes']['__selector__'][] = 'google_sync_import_location_override';
+$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_enabled'] = 'google_calendar_id_import,google_calendar_id_export,google_sync_until,google_sync_as_busy,google_sync_import_location_override,google_last_sync';
 $GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_as_busy'] = 'google_sync_busy_text';
+$GLOBALS['TL_DCA']['tl_calendar']['subpalettes']['google_sync_import_location_override'] = 'google_sync_import_location_text';
 
 
 // Add global operation button for syncing all calendars

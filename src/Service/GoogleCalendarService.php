@@ -1160,7 +1160,7 @@ class GoogleCalendarService
             $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
             $event->alias = \Contao\StringUtil::generateAlias($event->title) . '-' . uniqid();
             $event->teaser = $googleEvent->getDescription() ?: '';
-            $event->location = $googleEvent->getLocation() ?: '';
+            $event->location = $this->resolveImportedLocation($calendar, $googleEvent);
             $event->author = 0; // System/no author
             
             // For recurring instances, store the base event ID so we can deduplicate
@@ -1363,7 +1363,12 @@ class GoogleCalendarService
             $event->tstamp = time();
             $event->title = $googleEvent->getSummary() ?: 'Untitled Event';
             $event->teaser = $googleEvent->getDescription() ?: '';
-            $event->location = $googleEvent->getLocation() ?: '';
+            $calendar = CalendarModel::findByPk($event->pid);
+            if ($calendar) {
+                $event->location = $this->resolveImportedLocation($calendar, $googleEvent);
+            } else {
+                $event->location = $googleEvent->getLocation() ?: '';
+            }
             $event->google_updated = $googleEvent->getUpdated() ? strtotime($googleEvent->getUpdated()) : time();
             $event->google_event_origin = 'google'; // Mark as updated from Google
             $event->google_calendar_source = $googleCalendarId; // Store which calendar it was imported from
@@ -1430,5 +1435,17 @@ class GoogleCalendarService
                 'error' => $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Resolve location value for imported events.
+     */
+    private function resolveImportedLocation(CalendarModel $calendar, Event $googleEvent): string
+    {
+        if ($calendar->google_sync_import_location_override) {
+            return (string) ($calendar->google_sync_import_location_text ?? '');
+        }
+
+        return $googleEvent->getLocation() ?: '';
     }
 }

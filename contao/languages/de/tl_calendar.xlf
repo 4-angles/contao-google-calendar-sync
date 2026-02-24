@@ -42,6 +42,22 @@
                 <source>Custom text to display instead of event title (default: "Busy")</source>
                 <target>Eigener Text anstelle des Termintitels (Standard: "Belegt")</target>
             </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_import_location_override.0">
+                <source>Override import location</source>
+                <target>Import-Ort überschreiben</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_import_location_override.1">
+                <source>Use a custom value for the event location field when importing from Google Calendar</source>
+                <target>Beim Import aus Google Kalender einen eigenen Wert für das Feld Ort verwenden</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_import_location_text.0">
+                <source>Import location text</source>
+                <target>Import-Ort-Text</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_import_location_text.1">
+                <source>Text to store in the event location field for imported events</source>
+                <target>Text, der bei importierten Terminen im Feld Ort gespeichert wird</target>
+            </trans-unit>
             <trans-unit id="tl_calendar.google_sync_until.0">
                 <source>Sync until</source>
                 <target>Synchronisieren bis</target>
