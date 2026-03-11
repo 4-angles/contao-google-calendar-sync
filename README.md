@@ -122,7 +122,7 @@ GOOGLE_CALENDAR_APPLICATION_NAME="Contao Calendar Sync"
 4. Select calendars for (you can select only import, or only export):
    - **Import**: Google Calendar to import FROM
    - **Export**: Google Calendar to export TO
-5. You'll be prompted to authenticate with Google (click link in the message)
+5. You'll be prompted to authenticate with Google (click link in the message) yourdomain.com/contao/google-calendar-auth
 6. Grant access to your Google Calendar
 
 **Important**: Use different calendars for import and export to prevent sync loops!
