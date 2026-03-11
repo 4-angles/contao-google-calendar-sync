@@ -79,9 +79,29 @@ class GoogleCalendarService
                 
                 // Refresh token if expired
                 if ($this->client->isAccessTokenExpired()) {
-                    if ($this->client->getRefreshToken()) {
-                        $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
-                        $this->saveCredentials($this->client->getAccessToken());
+                    $refreshToken = $this->client->getRefreshToken();
+                    
+                    // Also check saved credentials for refresh token (it may not be in the current access token array)
+                    if (!$refreshToken && !empty($accessToken['refresh_token'])) {
+                        $refreshToken = $accessToken['refresh_token'];
+                    }
+                    
+                    if ($refreshToken) {
+                        $this->logger->info('Access token expired, refreshing automatically');
+                        $newToken = $this->client->fetchAccessTokenWithRefreshToken($refreshToken);
+                        
+                        if (isset($newToken['error'])) {
+                            $this->logger->error('Failed to refresh access token: ' . ($newToken['error_description'] ?? $newToken['error']));
+                            // Token refresh failed - could be revoked or test-mode expiry
+                        } else {
+                            // Preserve the refresh token - Google doesn't always return it on refresh
+                            if (empty($newToken['refresh_token'])) {
+                                $newToken['refresh_token'] = $refreshToken;
+                            }
+                            $this->client->setAccessToken($newToken);
+                            $this->saveCredentials($newToken);
+                            $this->logger->info('Access token refreshed successfully');
+                        }
                     } else {
                         $this->logger->warning('Google Calendar access token expired and no refresh token available - re-authentication required');
                         // Don't return null - still return client so user can re-authenticate
