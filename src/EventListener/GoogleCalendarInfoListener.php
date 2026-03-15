@@ -4,6 +4,7 @@ namespace FourAngles\ContaoGoogleCalendarBundle\EventListener;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\DataContainer;
+use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
 use Symfony\Component\Routing\RouterInterface;
 
 /**
@@ -12,8 +13,37 @@ use Symfony\Component\Routing\RouterInterface;
 class GoogleCalendarInfoListener
 {
     public function __construct(
-        private readonly RouterInterface $router
+        private readonly RouterInterface $router,
+        private readonly GoogleCalendarService $googleService,
     ) {
+    }
+
+    #[AsCallback(table: 'tl_google_calendar_settings', target: 'config.onload')]
+    public function onLoadSettings(DataContainer $dc): void
+    {
+        $authUrl = $this->router->generate('google_calendar_auth', [], RouterInterface::ABSOLUTE_URL);
+        $status  = $this->googleService->getAuthStatus();
+
+        $button = sprintf(
+            '<a href="%s" class="tl_submit" style="display:inline-block;margin-top:6px;text-decoration:none">%s</a>',
+            htmlspecialchars($authUrl, ENT_QUOTES, 'UTF-8'),
+            'Re-authenticate with Google'
+        );
+
+        if ($status === 'none') {
+            \Contao\Message::addInfo(
+                '<strong>Not authenticated.</strong> No Google Calendar credentials found. ' . $button
+            );
+        } elseif ($status === 'expired') {
+            \Contao\Message::addError(
+                '<strong>Token expired or revoked.</strong> The stored Google OAuth token is no longer valid – ' .
+                'automatic refresh failed (likely a test-mode app with a short-lived refresh token). ' . $button
+            );
+        } else {
+            \Contao\Message::addConfirmation(
+                '<strong>Authenticated.</strong> Google Calendar connection is active. ' . $button
+            );
+        }
     }
 
     #[AsCallback(table: 'tl_calendar', target: 'config.onload')]

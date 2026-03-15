@@ -185,6 +185,30 @@ class GoogleCalendarService
     }
 
     /**
+     * Get a lightweight auth status without initialising the full client.
+     *
+     * @return 'none'|'expired'|'ok'
+     */
+    public function getAuthStatus(): string
+    {
+        if (!file_exists($this->credentialsPath)) {
+            return 'none';
+        }
+
+        $token = json_decode(file_get_contents($this->credentialsPath), true);
+        if (empty($token['access_token'])) {
+            return 'none';
+        }
+
+        $expiresAt = ($token['created'] ?? 0) + ($token['expires_in'] ?? 0);
+        if ($expiresAt < time() + 60) {
+            return 'expired';
+        }
+
+        return 'ok';
+    }
+
+    /**
      * Save credentials to file
      */
     public function saveCredentials(array $accessToken): void
