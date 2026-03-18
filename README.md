@@ -2,8 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **⚠️ Development Status**: This extension is currently in active development. While it should be stable for production use, please test thoroughly in your environment before deploying. Report any issues on the project repository.
-
 Bi-directional synchronization between Contao CMS calendars and Google Calendar. Import events from Google Calendar into Contao and export Contao events to Google Calendar with automatic scheduling via cron jobs.
 
 ## Version control
@@ -31,6 +29,12 @@ I will always publish releases version based on which Contao version they suppor
 - PHP 8.1+
 - Google Cloud Project with Calendar API enabled
 - OAuth 2.0 credentials from Google Cloud Console
+
+## Need Help Installing?
+
+If the setup looks too technical, we offer installation as a service. We'll handle the Google Cloud configuration, bundle setup, and authentication so you can focus on managing your events.
+
+**Contact us at [miroslav@four-angles.com](mailto:miroslav@four-angles.com)** and we'll take care of it for you.
 
 ## Installation
 
@@ -62,6 +66,7 @@ I will always publish releases version based on which Contao version they suppor
 6. Click **Save and Continue**
 7. **Test users** (for External apps in testing): Add your Google account email
 8. Click **Save and Continue**
+9. When you finish testing publish app so renew token works automaticly.
 
 #### 1.4 Create OAuth 2.0 Credentials
 
@@ -329,7 +334,7 @@ The bundle handles Google API rate limits automatically:
 
 4. **Instance-Based Sync**: Recurring events with `singleEvents=true` only import the first instance to prevent duplicates. Changes to individual instances of recurring events may not sync
 
-5. **OAuth Token Refresh**: If refresh token expires (rare), manual re-authentication is required. Token refresh should happen automatically in most cases
+5. **OAuth Token Refresh**: If refresh token expires (rare), manual re-authentication is required. Token refresh should happen automatically if the app is published and in production mode
 
 6. **Attachment/Image Sync**: Event attachments and images are not synced between systems
 
@@ -338,8 +343,6 @@ The bundle handles Google API rate limits automatically:
 
 ## TODO / Roadmap
 
-- [ ] Add authentication status display in settings page
-- [ ] Add "Re-authenticate" button in backend
 - [ ] Better error messages for users (currently logged, not always shown)
 
 ## Contributing
