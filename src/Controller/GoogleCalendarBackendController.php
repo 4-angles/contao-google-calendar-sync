@@ -3,6 +3,7 @@
 namespace FourAngles\ContaoGoogleCalendarBundle\Controller;
 
 use FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService;
+use Contao\CalendarEventsModel;
 use Contao\CalendarModel;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\Message;
@@ -94,6 +95,61 @@ class GoogleCalendarBackendController extends AbstractController
         }
 
         return new RedirectResponse('/contao?do=calendar&table=tl_calendar_events&id=' . $calendarId);
+    }
+
+    /**
+     * Toggle event published state and sync with Google Calendar
+     */
+    #[Route('/google-calendar-toggle-event', name: 'google_calendar_toggle_event')]
+    public function toggleEventAction(Request $request): Response
+    {
+        $this->framework->initialize();
+
+        $eventId  = (int) $request->query->get('id');
+        $newState = (int) $request->query->get('state');
+
+        $event = CalendarEventsModel::findByPk($eventId);
+        if (!$event) {
+            $this->logger->error('Toggle failed: Event not found with ID ' . $eventId);
+            return new RedirectResponse('/contao?do=calendar');
+        }
+
+        $redirectUrl = '/contao?do=calendar&table=tl_calendar_events&id=' . $event->pid;
+
+        $calendar = CalendarModel::findByPk($event->pid);
+        if (!$calendar) {
+            $this->logger->error('Toggle failed: Calendar not found for event ' . $eventId);
+            return new RedirectResponse($redirectUrl);
+        }
+
+        // Update published state
+        $event->published = $newState ? '1' : '0';
+        $event->save();
+
+        // Sync with Google Calendar if enabled
+        if ($calendar->google_sync_enabled && $calendar->google_calendar_id_export) {
+            try {
+                if ($this->googleService->getService()) {
+                    if (!$newState && $event->google_export_event_id) {
+                        $this->googleService->deleteEventFromGoogle($event->google_export_event_id, $calendar->google_calendar_id_export);
+                        $event->google_export_event_id = '';
+                        $event->google_updated = 0;
+                        $event->save();
+                    } elseif ($newState) {
+                        $googleEventId = $this->googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export, $event->google_export_event_id ?: null);
+                        if ($googleEventId) {
+                            $event->google_export_event_id = $googleEventId;
+                            $event->google_updated = time();
+                            $event->save();
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->error('Error syncing event on toggle: ' . $e->getMessage());
+            }
+        }
+
+        return new RedirectResponse($redirectUrl);
     }
 
     /**

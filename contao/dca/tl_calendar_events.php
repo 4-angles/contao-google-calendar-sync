@@ -55,12 +55,6 @@ if (isset($GLOBALS['TL_DCA']['tl_calendar_events']['fields']['published'])) {
     $GLOBALS['TL_DCA']['tl_calendar_events']['fields']['published']['save_callback'][] = ['tl_calendar_events_google', 'onPublishedToggle'];
 }
 
-// Add onload_callback to intercept toggle action from list view
-if (!isset($GLOBALS['TL_DCA']['tl_calendar_events']['config']['onload_callback'])) {
-    $GLOBALS['TL_DCA']['tl_calendar_events']['config']['onload_callback'] = [];
-}
-$GLOBALS['TL_DCA']['tl_calendar_events']['config']['onload_callback'][] = ['tl_calendar_events_google', 'handleToggleAction'];
-
 // Add onsubmit callback to finalize Google Calendar ID updates after save
 if (!isset($GLOBALS['TL_DCA']['tl_calendar_events']['config']['onsubmit_callback'])) {
     $GLOBALS['TL_DCA']['tl_calendar_events']['config']['onsubmit_callback'] = [];
@@ -93,7 +87,8 @@ $GLOBALS['TL_DCA']['tl_calendar_events']['list']['global_operations']['export_to
     'button_callback' => ['tl_calendar_events_google', 'exportToGoogleButton']
 ];
 
-// Override the toggle operation to sync with Google Calendar
+// Override the toggle operation - button_callback generates a URL to our controller
+// so act=toggle never reaches Contao's DC_Table (which mixes up the calendar parent id with the event id)
 if (isset($GLOBALS['TL_DCA']['tl_calendar_events']['list']['operations']['toggle'])) {
     $GLOBALS['TL_DCA']['tl_calendar_events']['list']['operations']['toggle']['button_callback'] = ['tl_calendar_events_google', 'toggleVisibilityIcon'];
 }
@@ -104,172 +99,21 @@ if (isset($GLOBALS['TL_DCA']['tl_calendar_events']['list']['operations']['toggle
 class tl_calendar_events_google
 {
     /**
-     * Handle toggle action from list view - runs on DCA load
-     */
-    public function handleToggleAction(DataContainer $dc = null)
-    {
-        $tid = \Contao\Input::get('tid');
-        $state = \Contao\Input::get('state');
-        
-        // Not a toggle action
-        if (!$tid || $state === null || $state === '') {
-            return;
-        }
-        
-        $logger = \Contao\System::getContainer()->get('monolog.logger.contao.general');
-        $logger->info('handleToggleAction: Toggle detected', [
-            'tid' => $tid,
-            'state' => $state
-        ]);
-        
-        // Get the event with fresh data from database (not cached model)
-        // Use Database directly to ensure we have the latest google_export_event_id
-        $result = \Contao\Database::getInstance()
-            ->prepare('SELECT * FROM tl_calendar_events WHERE id = ?')
-            ->execute($tid);
-        
-        if (!$result->numRows) {
-            return;
-        }
-        
-        $eventData = $result->row();
-        
-        // Get parent calendar
-        $calendar = \Contao\CalendarModel::findByPk($eventData['pid']);
-        if (!$calendar || !$calendar->google_sync_enabled || !$calendar->google_calendar_id_export) {
-            $logger->info('handleToggleAction: Sync not enabled or no export calendar');
-            return;
-        }
-        
-        $logger->info('handleToggleAction: Processing toggle', [
-            'event_id' => $eventData['id'],
-            'event_title' => $eventData['title'],
-            'current_published' => $eventData['published'],
-            'new_state' => $state,
-            'google_export_event_id' => $eventData['google_export_event_id']
-        ]);
-        
-        try {
-            $googleService = \Contao\System::getContainer()->get('FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService');
-            
-            // If being unpublished (state=0) and has export ID, delete from Google
-            if ($state == '0') {
-                if ($eventData['google_export_event_id']) {
-                    $logger->info('handleToggleAction: DELETING from export calendar', [
-                        'event_id' => $eventData['id'],
-                        'export_id' => $eventData['google_export_event_id'],
-                        'calendar' => $calendar->google_calendar_id_export
-                    ]);
-                    $success = $googleService->deleteEventFromGoogle($eventData['google_export_event_id'], $calendar->google_calendar_id_export);
-                    if ($success) {
-                        // Clear the export ID directly in database
-                        \Contao\Database::getInstance()
-                            ->prepare('UPDATE tl_calendar_events SET google_export_event_id = ? WHERE id = ?')
-                            ->execute('', $tid);
-                        $logger->info('handleToggleAction: Successfully deleted and cleared export ID');
-                    } else {
-                        $logger->error('handleToggleAction: Failed to delete from Google Calendar');
-                    }
-                } else {
-                    $logger->warning('handleToggleAction: Unpublishing but no google_export_event_id to delete', [
-                        'event_id' => $eventData['id'],
-                        'event_title' => $eventData['title'],
-                        'google_event_id' => $eventData['google_event_id'] ?? 'none'
-                    ]);
-                }
-            }
-            // If being published (state=1), sync to Google (create new event)
-            elseif ($state == '1') {
-                $logger->info('handleToggleAction: Publishing - syncing to Google', [
-                    'existing_export_id' => $eventData['google_export_event_id'] ?: 'NONE - will create new'
-                ]);
-                
-                // Load the model for syncEventToGoogle (it expects a model object)
-                $event = \Contao\CalendarEventsModel::findByPk($tid);
-                if ($event) {
-                    // IMPORTANT: Force the published flag to 1 since DB hasn't been updated yet
-                    // but we know user is publishing this event
-                    $event->published = 1;
-                    
-                    // Pass null if no export ID exists (will create new event)
-                    $existingExportId = !empty($eventData['google_export_event_id']) ? $eventData['google_export_event_id'] : null;
-                    $googleEventId = $googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export, $existingExportId);
-                    if ($googleEventId) {
-                        // Update the export ID directly in database
-                        \Contao\Database::getInstance()
-                            ->prepare('UPDATE tl_calendar_events SET google_export_event_id = ?, google_updated = ? WHERE id = ?')
-                            ->execute($googleEventId, time(), $tid);
-                        $logger->info('handleToggleAction: Successfully synced to Google', [
-                            'google_export_event_id' => $googleEventId
-                        ]);
-                    } else {
-                        $logger->error('handleToggleAction: Failed to sync to Google - no ID returned');
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            $logger->error('handleToggleAction: Error: ' . $e->getMessage());
-        }
-    }
-    
-    /**
      * Handle toggle visibility button click - sync publish/unpublish with Google Calendar
      */
     public function toggleVisibilityIcon($row, $href, $label, $title, $icon, $attributes)
     {
-        $logger = \Contao\System::getContainer()->get('monolog.logger.contao.general');
-        
-        // Check if toggle action is being executed (not just rendering the icon)
-        if (\Contao\Input::get('tid') == $row['id'] && strlen(\Contao\Input::get('state'))) {
-            $newState = \Contao\Input::get('state');
-            
-            $logger->info('Toggle visibility via list icon', [
-                'event_id' => $row['id'],
-                'new_state' => $newState
-            ]);
-            
-            // Get event and calendar
-            $event = \Contao\CalendarEventsModel::findByPk($row['id']);
-            if ($event) {
-                $calendar = \Contao\CalendarModel::findByPk($event->pid);
-                
-                if ($calendar && $calendar->google_sync_enabled && $calendar->google_calendar_id_export) {
-                    try {
-                        $googleService = \Contao\System::getContainer()->get('FourAngles\ContaoGoogleCalendarBundle\Service\GoogleCalendarService');
-                        
-                        // If unpublishing and has export ID, delete from Google
-                        if ($newState == 0 && $event->google_export_event_id) {
-                            $logger->info('Toggle: Deleting from export calendar', [
-                                'event_id' => $event->id,
-                                'export_id' => $event->google_export_event_id
-                            ]);
-                            $googleService->deleteEventFromGoogle($event->google_export_event_id, $calendar->google_calendar_id_export);
-                            $event->google_export_event_id = '';
-                            $event->save();
-                        }
-                        // If publishing, sync to Google
-                        elseif ($newState == 1) {
-                            $googleEventId = $googleService->syncEventToGoogle($event, $calendar->google_calendar_id_export, $event->google_export_event_id ?: null);
-                            if ($googleEventId) {
-                                $event->google_export_event_id = $googleEventId;
-                                $event->google_updated = time();
-                                $event->save();
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        $logger->error('Error syncing event on toggle: ' . $e->getMessage());
-                    }
-                }
-            }
-        }
-        
-        // Return the default toggle icon behavior
-        // Build the icon based on current state
         $isPublished = $row['published'];
         $iconImg = $isPublished ? 'visible.svg' : 'invisible.svg';
         $newState = $isPublished ? 0 : 1;
-        
-        return '<a href="' . \Contao\Backend::addToUrl($href . '&amp;tid=' . $row['id'] . '&amp;state=' . $newState) . '" title="' . \Contao\StringUtil::specialchars($title) . '"' . $attributes . '>' . \Contao\Image::getHtml($iconImg, $label) . '</a> ';
+
+        // Route through our controller so act=toggle never hits Contao's DC_Table
+        $url = \Contao\System::getContainer()->get('router')->generate(
+            'google_calendar_toggle_event',
+            ['id' => $row['id'], 'state' => $newState]
+        );
+
+        return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '"' . $attributes . '>' . \Contao\Image::getHtml($iconImg, $label) . '</a> ';
     }
     
     /**
