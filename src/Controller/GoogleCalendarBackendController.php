@@ -195,7 +195,7 @@ class GoogleCalendarBackendController extends AbstractController
 
             if ($calendar->google_calendar_id_export) {
                 // Sync all events from this calendar to Google (within date range)
-                $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+                $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
                 $events = \Contao\CalendarEventsModel::findBy(
                     ['pid=?', 'published=?', 'startDate<=?'],
                     [$calendar->id, 1, $syncUntil]
@@ -282,7 +282,7 @@ class GoogleCalendarBackendController extends AbstractController
                 }
 
                 if ($calendar->google_calendar_id_export) {
-                    $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+                    $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
                     $events = \Contao\CalendarEventsModel::findBy(
                         ['pid=?', 'published=?', 'startDate<=?'],
                         [$calendar->id, 1, $syncUntil]

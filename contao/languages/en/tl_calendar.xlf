@@ -59,13 +59,21 @@
                 <source>Text to store in the event location field for imported events</source>
                 <target>Text to store in the event location field for imported events</target>
             </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_limit.0">
+                <source>Limit sync period</source>
+                <target>Limit sync period</target>
+            </trans-unit>
+            <trans-unit id="tl_calendar.google_sync_limit.1">
+                <source>Only sync events up to a fixed date. When disabled, events are always synced one year ahead (recommended).</source>
+                <target>Only sync events up to a fixed date. When disabled, events are always synced one year ahead (recommended).</target>
+            </trans-unit>
             <trans-unit id="tl_calendar.google_sync_until.0">
                 <source>Sync until</source>
                 <target>Sync until</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_sync_until.1">
                 <source>Date until which to sync events (default: 1 year ahead)</source>
-                <target>Date until which to sync events (default: 1 year ahead)</target>
+                <target>Events after this date will not be synced with Google Calendar.</target>
             </trans-unit>
             <trans-unit id="tl_calendar.google_last_sync.0">
                 <source>Last Synced</source>

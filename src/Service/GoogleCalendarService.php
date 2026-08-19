@@ -298,7 +298,7 @@ class GoogleCalendarService
         
         // Skip events beyond the configured sync date
         $calendar = CalendarModel::findByPk($event->pid);
-        $syncUntil = ($calendar && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+        $syncUntil = ($calendar && $calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
         $eventStartDate = $event->startDate ?? $event->startTime ?? 0;
         if ($eventStartDate > $syncUntil) {
             $this->logger->debug('Skipping event beyond sync date', [
@@ -453,8 +453,8 @@ class GoogleCalendarService
             return 0;
         }
 
-        // Get configurable sync date (default 1 year ahead)
-        $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+        // Get configurable sync date (default 1 year ahead, only when the limit checkbox is set)
+        $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
 
         // Get all published events from the Contao calendar within the sync range
         $events = CalendarEventsModel::findBy(
@@ -473,6 +473,22 @@ class GoogleCalendarService
         $syncCount = 0;
         $skippedCount = 0;
         $errorCount = 0;
+
+        // Diagnostic counters: how many events are excluded by each filter?
+        // These make "why was this event not exported?" answerable from the logs.
+        try {
+            $unpublishedCount = (int) CalendarEventsModel::countBy(
+                ['pid=?', 'published!=?', 'startDate<=?'],
+                [$calendar->id, '1', $syncUntil]
+            );
+            $beyondSyncDateCount = (int) CalendarEventsModel::countBy(
+                ['pid=?', 'published=?', 'startDate>?'],
+                [$calendar->id, '1', $syncUntil]
+            );
+        } catch (\Exception $e) {
+            $unpublishedCount = -1;
+            $beyondSyncDateCount = -1;
+        }
 
         foreach ($events as $event) {
             try {
@@ -518,7 +534,11 @@ class GoogleCalendarService
             'calendar_id' => $calendar->id,
             'exported_count' => $syncCount,
             'skipped_unchanged' => $skippedCount,
-            'error_count' => $errorCount
+            'error_count' => $errorCount,
+            'published_candidates' => $events ? count($events) : 0,
+            'unpublished_count' => $unpublishedCount,
+            'beyond_sync_date_count' => $beyondSyncDateCount,
+            'sync_until' => date('Y-m-d', $syncUntil)
         ]);
 
         return $syncCount;
@@ -795,8 +815,8 @@ class GoogleCalendarService
             $allGoogleEventIds = [];
             $processedBaseIds = [];
             
-            // Get configurable sync date (default 1 year ahead)
-            $syncUntil = ($calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
+            // Get configurable sync date (default 1 year ahead, only when the limit checkbox is set)
+            $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
 
             do {
                 // Sync only from today to configured date
