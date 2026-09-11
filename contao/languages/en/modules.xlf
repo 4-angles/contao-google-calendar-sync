@@ -8,6 +8,12 @@
       <trans-unit id="MOD.google_calendar_settings.1">
         <source>Configure Google Calendar API credentials</source>
       </trans-unit>
+      <trans-unit id="MOD.google_calendar_purge.0">
+        <source>Purge Google Calendar</source>
+      </trans-unit>
+      <trans-unit id="MOD.google_calendar_purge.1">
+        <source>Permanently delete all events from a Google export calendar</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

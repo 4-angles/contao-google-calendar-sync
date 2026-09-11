@@ -10,6 +10,14 @@
         <source>Configure Google Calendar API credentials</source>
         <target>Google Calendar API-Anmeldedaten konfigurieren</target>
       </trans-unit>
+      <trans-unit id="MOD.google_calendar_purge.0">
+        <source>Purge Google Calendar</source>
+        <target>Google Kalender leeren</target>
+      </trans-unit>
+      <trans-unit id="MOD.google_calendar_purge.1">
+        <source>Permanently delete all events from a Google export calendar</source>
+        <target>Alle Termine aus einem Google Export-Kalender endgültig löschen</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

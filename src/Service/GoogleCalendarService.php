@@ -19,6 +19,7 @@ class GoogleCalendarService
     private ?Client $client = null;
     private ?Calendar $service = null;
     private string $credentialsPath;
+    private string $varDir;
     private LoggerInterface $logger;
     private ContaoFramework $framework;
     private UrlGeneratorInterface $router;
@@ -31,10 +32,60 @@ class GoogleCalendarService
 
     public function __construct(string $projectDir, LoggerInterface $logger, ContaoFramework $framework, UrlGeneratorInterface $router)
     {
-        $this->credentialsPath = $projectDir . '/var/google-calendar-credentials.json';
+        $this->varDir = $projectDir . '/var';
+        $this->credentialsPath = $this->varDir . '/google-calendar-credentials.json';
         $this->logger = $logger;
         $this->framework = $framework;
         $this->router = $router;
+    }
+
+    /**
+     * Acquire an exclusive, non-blocking lock so two overlapping requests
+     * (a double-click, a page refresh mid-sync, or a manual trigger
+     * overlapping the cron) can't run the same sync/export concurrently -
+     * that race is what causes duplicate Google events, since both requests
+     * would otherwise see the same "not yet exported" state and both create
+     * a new event.
+     *
+     * @return resource|null The open file handle to release via
+     *                       releaseSyncLock() once the caller is done, or
+     *                       null if the lock file itself couldn't be opened
+     *                       (filesystem issue - proceeds unprotected rather
+     *                       than blocking sync entirely).
+     *
+     * @throws \RuntimeException if another run already holds the lock.
+     */
+    private function acquireSyncLock(string $lockName)
+    {
+        if (!is_dir($this->varDir)) {
+            mkdir($this->varDir, 0755, true);
+        }
+
+        $handle = fopen($this->varDir . '/google-calendar-' . $lockName . '.lock', 'c');
+        if ($handle === false) {
+            $this->logger->warning('Could not open sync lock file, proceeding without lock protection', [
+                'lock_name' => $lockName,
+            ]);
+            return null;
+        }
+
+        if (!flock($handle, LOCK_EX | LOCK_NB)) {
+            fclose($handle);
+            throw new \RuntimeException('A sync for this calendar is already running - please wait for it to finish.');
+        }
+
+        return $handle;
+    }
+
+    /**
+     * @param resource|null $lock
+     */
+    private function releaseSyncLock($lock): void
+    {
+        if ($lock !== null) {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     /**
@@ -442,6 +493,17 @@ class GoogleCalendarService
      */
     public function exportToGoogle(CalendarModel $calendar, string $googleCalendarId): int
     {
+        $lock = $this->acquireSyncLock('export-' . $calendar->id);
+
+        try {
+            return $this->doExportToGoogle($calendar, $googleCalendarId);
+        } finally {
+            $this->releaseSyncLock($lock);
+        }
+    }
+
+    private function doExportToGoogle(CalendarModel $calendar, string $googleCalendarId): int
+    {
         $this->logger->info('Starting export to Google Calendar', [
             'calendar_id' => $calendar->id,
             'google_calendar_id' => $googleCalendarId
@@ -490,42 +552,72 @@ class GoogleCalendarService
             $beyondSyncDateCount = -1;
         }
 
+        // Pre-filter: figure out which events actually need a Google API call
+        // (same guard clauses as syncEventToGoogle(), applied up front so we
+        // can batch the actual API calls instead of one round-trip per event)
+        $toSync = [];
         foreach ($events as $event) {
-            try {
-                // For export, use google_export_event_id to track the event in export calendar
-                $existingExportId = $event->google_export_event_id ?: null;
-                
-                // Skip events that haven't been modified since last export
-                if ($existingExportId && $event->google_updated && $event->tstamp <= $event->google_updated) {
-                    $skippedCount++;
+            if (!$event->published) {
+                $skippedCount++;
+                continue;
+            }
+
+            if ($event->google_event_origin === 'google' && $event->google_calendar_source === $googleCalendarId) {
+                $skippedCount++;
+                continue;
+            }
+
+            if ($event->recurring && $event->repeatEnd > 0 && $event->repeatEnd < time()) {
+                $skippedCount++;
+                continue;
+            }
+
+            $eventStartDate = $event->startDate ?? $event->startTime ?? 0;
+            if ($eventStartDate > $syncUntil) {
+                $skippedCount++;
+                continue;
+            }
+
+            $existingExportId = $event->google_export_event_id ?: null;
+
+            // Skip events that haven't been modified since last export
+            if ($existingExportId && $event->google_updated && $event->tstamp <= $event->google_updated) {
+                $skippedCount++;
+                continue;
+            }
+
+            $toSync[] = ['event' => $event, 'existingId' => $existingExportId];
+        }
+
+        foreach (array_chunk($toSync, 50) as $chunk) {
+            $batchResults = $this->syncEventBatch($service, $googleCalendarId, $chunk);
+
+            foreach ($batchResults as $eventId => $result) {
+                if (!$result['success']) {
+                    $errorCount++;
+                    $this->logger->error('Error exporting event to Google Calendar', [
+                        'event_id' => $eventId,
+                        'error' => $result['error'],
+                    ]);
                     continue;
                 }
-                
-                // Sync event to Google (pass existing export ID for update)
-                $googleEventId = $this->syncEventToGoogle($event, $googleCalendarId, $existingExportId);
-                
-                if ($googleEventId) {
-                    // Store the export calendar's event ID separately
-                    $event->google_export_event_id = $googleEventId;
-                    $event->google_updated = time();
-                    // Only set origin to 'contao' if it wasn't imported from Google
-                    if ($event->google_event_origin !== 'google') {
-                        $event->google_event_origin = 'contao';
-                    }
-                    $event->save();
-                    
-                    $syncCount++;
-                    $this->logger->debug('Exported event to Google Calendar', [
-                        'event_id' => $event->id,
-                        'google_export_event_id' => $googleEventId
-                    ]);
+
+                $event = CalendarEventsModel::findByPk($eventId);
+                if (!$event) {
+                    continue;
                 }
-            } catch (\Exception $e) {
-                $errorCount++;
-                $this->logger->error('Error exporting event to Google Calendar', [
-                    'event_id' => $event->id,
-                    'event_title' => $event->title,
-                    'error' => $e->getMessage()
+
+                $event->google_export_event_id = $result['googleEventId'];
+                $event->google_updated = time();
+                if ($event->google_event_origin !== 'google') {
+                    $event->google_event_origin = 'contao';
+                }
+                $event->save();
+
+                $syncCount++;
+                $this->logger->debug('Exported event to Google Calendar', [
+                    'event_id' => $eventId,
+                    'google_export_event_id' => $result['googleEventId']
                 ]);
             }
         }
@@ -542,6 +634,122 @@ class GoogleCalendarService
         ]);
 
         return $syncCount;
+    }
+
+    /**
+     * Create/update up to 50 events in a single batched HTTP request instead
+     * of one round-trip per event. Handles partial failure per item: a rate
+     * limit hit on one item retries only that item (never an already-
+     * succeeded create, which would otherwise duplicate it), and a stale
+     * export ID (404 on update) is cleared and retried as a fresh create -
+     * the same self-heal syncEventToGoogle() does for the single-event path.
+     *
+     * @param array<int, array{event: CalendarEventsModel, existingId: ?string}> $items
+     * @return array<int, array{success: bool, googleEventId: ?string, error: ?string}> keyed by Contao event id
+     */
+    private function syncEventBatch(Calendar $service, string $googleCalendarId, array $items): array
+    {
+        $client = $this->getClient();
+        if ($client === null) {
+            $results = [];
+            foreach ($items as $item) {
+                $results[$item['event']->id] = ['success' => false, 'googleEventId' => null, 'error' => 'Google client unavailable'];
+            }
+            return $results;
+        }
+
+        $results = [];
+        $pending = $items;
+        $retries = 0;
+
+        $client->setUseBatch(true);
+
+        try {
+            while ($pending && $retries <= $this->maxRetries) {
+                $this->throttle();
+
+                $batch = $service->createBatch();
+                $keyMap = [];
+
+                foreach ($pending as $i => $item) {
+                    $key = (string) $i;
+                    $googleEvent = $this->convertContaoEventToGoogle($item['event']);
+
+                    if ($item['existingId']) {
+                        $batch->add($service->events->update($googleCalendarId, $item['existingId'], $googleEvent), $key);
+                    } else {
+                        $batch->add($service->events->insert($googleCalendarId, $googleEvent), $key);
+                    }
+
+                    $keyMap[$key] = $item;
+                }
+
+                $batchResponses = $batch->execute();
+                $stillPending = [];
+                $rateLimited = false;
+
+                foreach ($keyMap as $key => $item) {
+                    $responseKey = array_key_exists('response-' . $key, $batchResponses) ? 'response-' . $key : $key;
+                    $result = $batchResponses[$responseKey] ?? null;
+                    $eventId = $item['event']->id;
+
+                    if ($result instanceof \Google\Service\Exception) {
+                        // Stale export ID - clear it and retry as a create, not an update
+                        if ($result->getCode() === 404 && $item['existingId']) {
+                            $this->logger->warning('Event not found in Google Calendar during batch export, clearing stale ID and recreating', [
+                                'event_id' => $eventId,
+                                'old_google_event_id' => $item['existingId'],
+                            ]);
+                            Database::getInstance()
+                                ->prepare('UPDATE tl_calendar_events SET google_export_event_id = ? WHERE id = ?')
+                                ->execute('', $eventId);
+                            $item['existingId'] = null;
+                            $stillPending[] = $item;
+                            continue;
+                        }
+
+                        if ($result->getCode() === 403 && strpos($result->getMessage(), 'rateLimitExceeded') !== false) {
+                            $rateLimited = true;
+                            $stillPending[] = $item;
+                            continue;
+                        }
+
+                        $results[$eventId] = ['success' => false, 'googleEventId' => null, 'error' => $result->getMessage()];
+                        continue;
+                    }
+
+                    if ($result === null) {
+                        $results[$eventId] = ['success' => false, 'googleEventId' => null, 'error' => 'No response from batch'];
+                        continue;
+                    }
+
+                    $results[$eventId] = ['success' => true, 'googleEventId' => $result->getId(), 'error' => null];
+                }
+
+                $pending = $stillPending;
+
+                if ($pending) {
+                    $retries++;
+                    if ($rateLimited && $retries <= $this->maxRetries) {
+                        $waitTime = pow(2, $retries) * 1000000;
+                        $this->logger->warning('Rate limit hit during export batch, retrying', [
+                            'retry' => $retries,
+                            'wait_ms' => $waitTime / 1000,
+                            'pending_count' => count($pending),
+                        ]);
+                        usleep($waitTime);
+                    }
+                }
+            }
+        } finally {
+            $client->setUseBatch(false);
+        }
+
+        foreach ($pending as $item) {
+            $results[$item['event']->id] = ['success' => false, 'googleEventId' => null, 'error' => 'Max retries exceeded'];
+        }
+
+        return $results;
     }
 
     /**
@@ -588,6 +796,139 @@ class GoogleCalendarService
         return false;
     }
     
+    /**
+     * Permanently delete this Contao calendar's own exported events from
+     * Google - and ONLY those. Deliberately does NOT list and wipe every
+     * event in the target Google Calendar, because multiple Contao calendars
+     * can (and here, do) share the same Google export calendar; blindly
+     * clearing the whole Google calendar would delete every other Contao
+     * calendar's events too. Scoping to the specific google_export_event_id
+     * values this calendar's own events are tracked with keeps the purge
+     * from touching anything it didn't put there.
+     *
+     * This does not touch Contao data - call clearGoogleTrackingForCalendar()
+     * afterwards to reset the stale tracking IDs left on Contao events.
+     *
+     * Deletes are sent in batches of up to 50 (Google Calendar API's batch
+     * limit) instead of one HTTP round-trip per event.
+     */
+    public function purgeCalendarEvents(CalendarModel $calendar, string $googleCalendarId): int
+    {
+        $service = $this->getService();
+        $client = $this->getClient();
+        if ($service === null || $client === null) {
+            $this->logger->error('Cannot purge: Google Calendar service not available');
+            return 0;
+        }
+
+        $result = Database::getInstance()
+            ->prepare("SELECT google_export_event_id FROM tl_calendar_events WHERE pid=? AND google_export_event_id!=''")
+            ->execute($calendar->id);
+
+        $eventIds = array_values(array_unique($result->fetchEach('google_export_event_id')));
+
+        if (empty($eventIds)) {
+            $this->logger->info('Nothing to purge - no Google events tracked for this calendar', [
+                'calendar_id' => $calendar->id,
+                'google_calendar_id' => $googleCalendarId,
+            ]);
+            return 0;
+        }
+
+        $deletedCount = 0;
+        $client->setUseBatch(true);
+
+        try {
+            foreach (array_chunk($eventIds, 50) as $chunk) {
+                $deletedCount += $this->deleteEventBatch($service, $googleCalendarId, $chunk);
+            }
+        } finally {
+            $client->setUseBatch(false);
+        }
+
+        $this->logger->warning('Purged this calendar\'s tracked events from Google Calendar', [
+            'calendar_id' => $calendar->id,
+            'google_calendar_id' => $googleCalendarId,
+            'found_count' => count($eventIds),
+            'deleted_count' => $deletedCount,
+        ]);
+
+        return $deletedCount;
+    }
+
+    /**
+     * Delete up to 50 events in a single batched HTTP request, retrying the
+     * whole chunk on a rate-limit response.
+     *
+     * @param string[] $eventIds
+     */
+    private function deleteEventBatch(Calendar $service, string $googleCalendarId, array $eventIds): int
+    {
+        $retries = 0;
+
+        while ($retries <= $this->maxRetries) {
+            $this->throttle();
+            $batch = $service->createBatch();
+
+            foreach ($eventIds as $i => $eventId) {
+                $batch->add($service->events->delete($googleCalendarId, $eventId), (string) $i);
+            }
+
+            $results = $batch->execute();
+            $deletedCount = 0;
+            $rateLimited = false;
+
+            foreach ($results as $result) {
+                if (!($result instanceof \Google\Service\Exception)) {
+                    $deletedCount++;
+                    continue;
+                }
+
+                // 404/410 = already gone - treat as success.
+                if (in_array($result->getCode(), [404, 410], true)) {
+                    $deletedCount++;
+                    continue;
+                }
+
+                if ($result->getCode() === 403 && strpos($result->getMessage(), 'rateLimitExceeded') !== false) {
+                    $rateLimited = true;
+                    continue;
+                }
+
+                $this->logger->error('Error deleting event in purge batch: ' . $result->getMessage());
+            }
+
+            if (!$rateLimited) {
+                return $deletedCount;
+            }
+
+            $retries++;
+            $waitTime = pow(2, $retries) * 1000000;
+            $this->logger->warning('Rate limit hit during purge batch, retrying', [
+                'retry' => $retries,
+                'wait_ms' => $waitTime / 1000,
+            ]);
+            usleep($waitTime);
+        }
+
+        $this->logger->error('Purge batch failed after max retries due to rate limiting');
+        return 0;
+    }
+
+    /**
+     * Reset the google_export_event_id tracking field on Contao events after
+     * a purge, so a later export sync recreates events instead of trying to
+     * update Google IDs that no longer exist.
+     */
+    public function clearGoogleTrackingForCalendar(CalendarModel $calendar): int
+    {
+        $result = Database::getInstance()
+            ->prepare("UPDATE tl_calendar_events SET google_export_event_id='', google_updated=0 WHERE pid=? AND google_export_event_id!=''")
+            ->execute($calendar->id);
+
+        return $result->affectedRows;
+    }
+
     /**
      * Throttle API calls to respect rate limits
      */
@@ -637,6 +978,7 @@ class GoogleCalendarService
         // Use calendar-level setting only
         $calendar = CalendarModel::findByPk($event->pid);
         $syncAsBusy = $calendar && $calendar->google_sync_as_busy;
+        $syncUntil = ($calendar && $calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
         
         if ($syncAsBusy) {
             // Use custom busy text or default to 'Busy'
@@ -683,7 +1025,7 @@ class GoogleCalendarService
 
         // Handle recurring events
         if ($event->recurring) {
-            $rrule = $this->buildRRule($event);
+            $rrule = $this->buildRRule($event, $syncUntil);
             if ($rrule) {
                 $googleEvent->setRecurrence([$rrule]);
             }
@@ -693,9 +1035,18 @@ class GoogleCalendarService
     }
 
     /**
-     * Build RRULE string from Contao recurring event settings
+     * Build RRULE string from Contao recurring event settings.
+     *
+     * @param int $syncUntil Timestamp the calendar's export sync horizon
+     *                       (its configured "sync until" date, or the
+     *                       rolling +1 year default). Always caps the
+     *                       exported UNTIL so an event with no repeatEnd
+     *                       set doesn't recur forever in Google Calendar -
+     *                       without this, an open-ended Contao recurring
+     *                       event produces an RRULE with no COUNT/UNTIL at
+     *                       all, and Google expands it indefinitely.
      */
-    private function buildRRule(CalendarEventsModel $event): ?string
+    private function buildRRule(CalendarEventsModel $event, int $syncUntil): ?string
     {
         if (!$event->recurring) {
             return null;
@@ -738,15 +1089,18 @@ class GoogleCalendarService
             $rrule .= ';BYDAY=' . $dayOfWeek;
         }
 
-        // Add COUNT if recurrences is set
+        // Add COUNT if recurrences is set (an explicit finite count from the
+        // admin - honored as-is; RRULE doesn't allow COUNT and UNTIL together)
         if ($event->recurrences > 0) {
             $rrule .= ';COUNT=' . $event->recurrences;
-        }
-        // Otherwise add UNTIL if repeatEnd is set
-        elseif ($event->repeatEnd > 0) {
+        } else {
+            // No COUNT: always add an UNTIL, capped at the sync horizon, so
+            // the exported recurrence can never run further into the future
+            // than this calendar's export window - even if repeatEnd is
+            // unset (fully open-ended) or set further out than the horizon.
+            $until = ($event->repeatEnd > 0) ? min((int) $event->repeatEnd, $syncUntil) : $syncUntil;
             // Google Calendar expects UNTIL in UTC format: YYYYMMDDTHHMMSSZ
-            $until = gmdate('Ymd\\THis\\Z', $event->repeatEnd);
-            $rrule .= ';UNTIL=' . $until;
+            $rrule .= ';UNTIL=' . gmdate('Ymd\\THis\\Z', $until);
         }
 
         return $rrule;
@@ -791,9 +1145,20 @@ class GoogleCalendarService
      */
     public function syncFromGoogle(CalendarModel $calendar, string $googleCalendarId): int
     {
+        $lock = $this->acquireSyncLock('import-' . $calendar->id);
+
+        try {
+            return $this->doSyncFromGoogle($calendar, $googleCalendarId);
+        } finally {
+            $this->releaseSyncLock($lock);
+        }
+    }
+
+    private function doSyncFromGoogle(CalendarModel $calendar, string $googleCalendarId): int
+    {
         // Initialize Contao framework for model operations
         $this->framework->initialize();
-        
+
         $service = $this->getService();
 
         if ($service === null) {

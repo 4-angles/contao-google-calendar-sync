@@ -250,36 +250,14 @@ class GoogleCalendarBackendController extends AbstractController
             }
 
             if ($calendar->google_calendar_id_export) {
-                // Sync all events from this calendar to Google (within date range)
-                $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
-                $events = \Contao\CalendarEventsModel::findBy(
-                    ['pid=?', 'published=?', 'startDate<=?'],
-                    [$calendar->id, 1, $syncUntil]
-                );
-                
-                if ($events) {
-                    $toGoogleCount = 0;
-                    foreach ($events as $event) {
-                        
-                        $googleEventId = $this->googleService->syncEventToGoogle(
-                            $event,
-                            $calendar->google_calendar_id_export
-                        );
-                        
-                        if ($googleEventId) {
-                            $event->google_event_id = $googleEventId;
-                            $event->google_updated = time();
-                            $event->save();
-                            $toGoogleCount++;
-                        }
-                    }
-                    
-                    Message::addInfo("Synced $toGoogleCount events to Google Calendar");
-                    $this->logger->info("Synced $toGoogleCount events to Google Calendar");
-                    $syncCount += $toGoogleCount;
-                } else {
-                    Message::addInfo("No events found to sync to Google Calendar");
-                }
+                // Sync all events from this calendar to Google (within date range).
+                // Delegates to exportToGoogle() which reuses google_export_event_id
+                // to update existing Google events instead of creating duplicates.
+                $toGoogleCount = $this->googleService->exportToGoogle($calendar, $calendar->google_calendar_id_export);
+
+                Message::addInfo("Synced $toGoogleCount events to Google Calendar");
+                $this->logger->info("Synced $toGoogleCount events to Google Calendar");
+                $syncCount += $toGoogleCount;
             }
 
             // Update last sync timestamp
@@ -338,27 +316,9 @@ class GoogleCalendarBackendController extends AbstractController
                 }
 
                 if ($calendar->google_calendar_id_export) {
-                    $syncUntil = ($calendar->google_sync_limit && $calendar->google_sync_until) ? (int)$calendar->google_sync_until : strtotime('+1 year');
-                    $events = \Contao\CalendarEventsModel::findBy(
-                        ['pid=?', 'published=?', 'startDate<=?'],
-                        [$calendar->id, 1, $syncUntil]
-                    );
-                    
-                    if ($events) {
-                        foreach ($events as $event) {
-                            $googleEventId = $this->googleService->syncEventToGoogle(
-                                $event,
-                                $calendar->google_calendar_id_export
-                            );
-                            
-                            if ($googleEventId) {
-                                $event->google_event_id = $googleEventId;
-                                $event->google_updated = time();
-                                $event->save();
-                                $totalSynced++;
-                            }
-                        }
-                    }
+                    // Delegates to exportToGoogle() which reuses google_export_event_id
+                    // to update existing Google events instead of creating duplicates.
+                    $totalSynced += $this->googleService->exportToGoogle($calendar, $calendar->google_calendar_id_export);
                 }
 
                 $calendar->google_last_sync = time();

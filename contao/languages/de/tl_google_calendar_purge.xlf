@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="de" datatype="plaintext" original="tl_google_calendar_purge">
+    <body>
+      <trans-unit id="tl_google_calendar_purge.purge_legend">
+        <source>Purge Google Calendar events</source>
+        <target>Google Kalender Termine löschen</target>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_purge.calendars.0">
+        <source>Calendars</source>
+        <target>Kalender</target>
+      </trans-unit>
+      <trans-unit id="tl_google_calendar_purge.calendars.1">
+        <source>Select which calendars' Google export calendar to permanently wipe. This deletes ALL events from the Google side and cannot be undone. Contao events are not deleted, only their Google tracking IDs are cleared.</source>
+        <target>Wählen Sie, welcher Google Export-Kalender endgültig geleert werden soll. Dadurch werden ALLE Termine auf der Google-Seite gelöscht - dies kann nicht rückgängig gemacht werden. Contao-Termine werden nicht gelöscht, nur ihre Google-Tracking-IDs werden zurückgesetzt.</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

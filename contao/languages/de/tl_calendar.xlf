@@ -105,6 +105,7 @@
             <trans-unit id="tl_calendar.google_sync_all_confirm">
                 <source>Sync all calendars with Google Calendar sync enabled?</source>
                 <target>Alle Kalender mit aktivierter Google Kalender-Synchronisation synchronisieren?</target>
-            </trans-unit>        </body>
+            </trans-unit>
+        </body>
     </file>
 </xliff>

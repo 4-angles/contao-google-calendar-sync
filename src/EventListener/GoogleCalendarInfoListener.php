@@ -46,6 +46,20 @@ class GoogleCalendarInfoListener
         }
     }
 
+    #[AsCallback(table: 'tl_google_calendar_purge', target: 'config.onload')]
+    public function onLoadPurgeModule(DataContainer $dc): void
+    {
+        if (!\Contao\BackendUser::getInstance()->isAdmin) {
+            throw new \Contao\CoreBundle\Exception\AccessDeniedException('This module is restricted to administrators.');
+        }
+
+        \Contao\Message::addError(
+            '<strong>Warning:</strong> selecting a calendar here and saving PERMANENTLY DELETES ALL events from ' .
+            'its Google export calendar. This cannot be undone. Contao events are not deleted, only their Google ' .
+            'tracking IDs are cleared so the next export sync recreates them cleanly.'
+        );
+    }
+
     #[AsCallback(table: 'tl_calendar', target: 'config.onload')]
     public function onLoadCalendar(DataContainer $dc): void
     {

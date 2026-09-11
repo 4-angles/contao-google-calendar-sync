@@ -23,3 +23,10 @@ $GLOBALS['BE_MOD']['system']['google_calendar_settings'] = [
     'icon' => 'bundles/fouranglescontaogooglecalendar/icons/sync-calendar.svg'
 ];
 
+// Google Calendar Purge Backend Module (destructive, kept separate from
+// day-to-day sync settings)
+$GLOBALS['BE_MOD']['system']['google_calendar_purge'] = [
+    'tables' => ['tl_google_calendar_purge'],
+    'icon' => 'bundles/fouranglescontaogooglecalendar/icons/purge-calendar.svg'
+];
+

@@ -113,6 +113,11 @@ $GLOBALS['TL_DCA']['tl_calendar']['list']['global_operations']['google_sync_all'
     'button_callback' => ['tl_calendar_google', 'syncAllButton'],
 ];
 
+// Note: purging Google Calendar events is intentionally NOT exposed as a
+// row operation here (too easy to misclick next to every calendar). It's
+// its own backend module instead - see tl_google_calendar_purge.php and
+// the "Danger zone" link added by GoogleCalendarInfoListener.
+
 /**
  * Provide miscellaneous methods for tl_calendar with Google Calendar integration
  */
@@ -185,7 +190,7 @@ class tl_calendar_google extends Backend
         $label = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all'][0] ?? 'Sync All';
         $icon = '/bundles/fouranglescontaogooglecalendar/icons/sync-calendar.svg';
         $confirm = $GLOBALS['TL_LANG']['tl_calendar']['google_sync_all_confirm'] ?? 'Sync all calendars with Google?';
-        
+
         return '<a href="' . $url . '" title="' . \Contao\StringUtil::specialchars($title) . '" onclick="if(!confirm(\'' . \Contao\StringUtil::specialchars($confirm) . '\'))return false">' . \Contao\Image::getHtml($icon, $label) . ' ' . $label . '</a> ';
     }
 }
